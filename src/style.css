@@ -178,6 +178,12 @@ button {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --bg-color: #ffffff;
+  }
+  [data-theme="dark"] {
+    --bg-color: #0f0f0f;
+  }
   .container {
     padding: 0 20px;
   }

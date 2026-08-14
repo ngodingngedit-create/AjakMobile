@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck } from 'lucide-vue-next';
+import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck, Layers, Info, User } from 'lucide-vue-next';
 import { bookingStore } from '../store/booking';
 
 const router = useRouter();
@@ -257,57 +257,93 @@ const tagColors = {
           class="event-card"
           @click="selectEvent(event)"
         >
-          <div class="event-card-img">
-            <img :src="event.image" :alt="event.name" />
-            <div class="event-img-overlay"></div>
-            <div class="event-genre-tag" :style="{ background: tagColors[event.tag] }">
-              {{ event.tag }}
+          <!-- Desktop Layout (hidden on mobile) -->
+          <div class="event-card-desktop">
+            <div class="event-card-img">
+              <img :src="event.image" :alt="event.name" />
+              <div class="event-img-overlay"></div>
+              <div class="event-genre-tag" :style="{ background: tagColors[event.tag] }">
+                {{ event.tag }}
+              </div>
+            </div>
+            <div class="event-card-body">
+              <div class="event-city-text">{{ event.city }}</div>
+              <h3 class="event-name">{{ event.name }}</h3>
+              <div class="event-meta">
+                <div class="meta-row">
+                  <Calendar :size="13" />
+                  <span>{{ event.dateLabel }} · {{ event.time }}</span>
+                </div>
+                <div class="meta-row">
+                  <MapPin :size="13" />
+                  <span>{{ event.location }}</span>
+                </div>
+              </div>
+
+              <!-- Facilities and seat layout -->
+              <div class="bus-amenities-section">
+                <div class="bus-layout-info">
+                  <span class="layout-label">Layout seat: </span>
+                  <span class="layout-value">{{ event.seat_layout.replace('_', '+') }} seating</span>
+                </div>
+                <div class="card-facilities-row">
+                  <div 
+                    v-for="fac in event.facilities" 
+                    :key="fac" 
+                    class="mini-facility-tag"
+                    v-title="fac"
+                  >
+                    <component :is="getFacilityIcon(fac)" :size="12" />
+                    <span>{{ fac }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="event-card-footer">
+                <div class="event-price-block">
+                  <span class="price-label">Mulai dari</span>
+                  <div style="display: flex; flex-direction: column;">
+                    <span class="event-price">{{ event.price }}</span>
+                    <span style="font-size: 0.72rem; color: #000000; font-weight: 600;">*Termasuk tiket ancol</span>
+                  </div>
+                </div>
+                <button class="book-now-btn">
+                  Pesan →
+                </button>
+              </div>
             </div>
           </div>
-          <div class="event-card-body">
-            <div class="event-city-text">{{ event.city }}</div>
-            <h3 class="event-name">{{ event.name }}</h3>
-            <div class="event-meta">
-              <div class="meta-row">
-                <Calendar :size="13" />
-                <span>{{ event.dateLabel }} · {{ event.time }}</span>
-              </div>
-              <div class="meta-row">
-                <MapPin :size="13" />
-                <span>{{ event.location }}</span>
-              </div>
-            </div>
 
-            <!-- Facilities and seat layout -->
-            <div class="bus-amenities-section">
-              <div class="bus-layout-info">
-                <span class="layout-label">Layout seat: </span>
-                <span class="layout-value">{{ event.seat_layout.replace('_', '+') }} seating</span>
-              </div>
-              <div class="card-facilities-row">
-                <div 
-                  v-for="fac in event.facilities" 
-                  :key="fac" 
-                  class="mini-facility-tag"
-                  v-title="fac"
-                >
-                  <component :is="getFacilityIcon(fac)" :size="12" />
-                  <span>{{ fac }}</span>
-                </div>
-              </div>
+          <!-- Mobile Layout (visible only on mobile) -->
+          <div class="event-card-mobile">
+            <div class="mobile-card-img-wrapper">
+              <span class="mobile-card-location-badge">{{ event.facilities && event.facilities[0] ? event.facilities[0].split(' ')[0] : 'Ancol' }}</span>
+              <img :src="event.image" :alt="event.name" class="mobile-card-img" />
             </div>
-
-            <div class="event-card-footer">
-              <div class="event-price-block">
-                <span class="price-label">Mulai dari</span>
-                <div style="display: flex; flex-direction: column;">
-                  <span class="event-price">{{ event.price }}</span>
-                  <span style="font-size: 0.72rem; color: #000000; font-weight: 600;">*Termasuk tiket ancol</span>
-                </div>
+            
+            <div class="mobile-card-body">
+              <!-- Event Name -->
+              <h3 class="mobile-card-title">{{ event.name }}</h3>
+              
+              <!-- Date Row -->
+              <div class="mobile-card-date">
+                <Calendar :size="14" class="date-icon" />
+                <span>{{ event.dateLabel }}</span>
               </div>
-              <button class="book-now-btn">
-                Pesan →
-              </button>
+              
+              <!-- Price -->
+              <div class="mobile-card-price">{{ event.price }}</div>
+
+              <!-- Dashed Divider -->
+              <div class="mobile-card-divider"></div>
+
+              <!-- Creator -->
+              <div class="mobile-card-creator">
+                <div class="creator-avatar">
+                  <User :size="12" class="creator-avatar-icon" />
+                </div>
+                <span class="creator-name">{{ event.organizer || 'Ajak! Partner' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -863,14 +899,324 @@ const tagColors = {
   .event-name { font-size: 1.15rem !important; }
 }
 
+.event-card-mobile {
+  display: none;
+}
+
 @media (max-width: 768px) {
-  .events-grid { grid-template-columns: 1fr; gap: 32px; }
+  .events-grid {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory;
+    gap: 16px !important;
+    padding: 4px 4px 16px 4px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .events-grid::-webkit-scrollbar {
+    display: none;
+  }
   .events-hero { padding: 120px 0 48px; }
   .events-hero-title { font-size: 2.2rem; }
   .filter-row { gap: 8px; }
   .sort-select { font-size: 0.8rem; }
-  .event-card-body { padding: 12px 0 0 !important; }
-  .event-card-img { height: 200px; }
-  .event-name { font-size: 1.25rem !important; }
+  
+  .event-card-desktop {
+    display: none !important;
+  }
+  
+  .event-card {
+    flex: 0 0 280px !important;
+    scroll-snap-align: start;
+  }
+  
+  .event-card:not(.skeleton-card) {
+    background: var(--card-bg, #ffffff) !important;
+    border: none !important;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    padding: 0 !important;
+    display: block !important;
+    transition: all 0.3s ease !important;
+  }
+
+  .event-card-mobile {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .mobile-card-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 180px;
+  }
+
+  .mobile-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .mobile-card-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    padding: 5px 12px;
+    border-radius: 30px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    z-index: 10;
+  }
+
+  .mobile-card-action-buttons {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .action-circle-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 0.2s;
+  }
+
+  .action-circle-btn:active {
+    background: rgba(15, 23, 42, 0.9);
+  }
+
+  .mobile-card-dots {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+  }
+
+  .mobile-card-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transition: all 0.2s;
+  }
+
+  .mobile-card-dots .dot.active {
+    background: #ffffff;
+    width: 14px;
+    border-radius: 4px;
+  }
+
+  .mobile-card-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 140px;
+  }
+
+  .mobile-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .mobile-card-body {
+    padding: 12px 14px 14px 14px;
+    background: var(--card-bg, #ffffff);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dark, #2A2A2A);
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-card-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 400;
+    margin: 0 0 8px 0;
+  }
+
+  .mobile-card-date .date-icon {
+    color: var(--primary, #C94C4C) !important;
+  }
+
+  .mobile-card-price {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a !important;
+    margin: 0 0 12px 0;
+  }
+
+  .mobile-card-location-badge {
+    position: absolute;
+    top: 12px;
+    left: -3px;
+    background: #b12525 !important;
+    color: #ffffff !important;
+    padding: 3px 12px 3px 8px;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    z-index: 15;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.15);
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+  }
+
+  .mobile-card-location-badge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 3px 3px 0 0;
+    border-color: #601212 transparent transparent transparent;
+  }
+
+  .mobile-card-divider {
+    border-top: 1px dashed #e2e8f0;
+    margin: 0 0 10px 0;
+    width: 100%;
+  }
+
+  .mobile-card-creator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .mobile-card-creator .creator-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    color: #64748b;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-card-creator .creator-avatar-icon {
+    color: #64748b;
+  }
+
+  .mobile-card-creator .creator-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+
+  [data-theme="dark"] .mobile-card-creator .creator-avatar {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="dark"] .mobile-card-creator .creator-name {
+    color: #cbd5e1;
+  }
+
+  .mobile-card-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-dark, #1e293b);
+    margin: 0;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+  }
+
+  .mobile-card-location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 400;
+  }
+
+  .mobile-card-location .loc-icon {
+    color: var(--primary, #C94C4C);
+    flex-shrink: 0;
+  }
+
+  .mobile-card-specs-grid {
+    display: none !important;
+  }
+
+  [data-theme="dark"] .mobile-card-specs-grid {
+    display: none !important;
+  }
+
+  .spec-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .spec-icon {
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .truncate-spec {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
 }
 </style>

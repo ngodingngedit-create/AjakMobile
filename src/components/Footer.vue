@@ -90,7 +90,8 @@ onBeforeUnmount(() => {
 <template>
   <footer class="footer">
     <div class="container footer-container">
-      <div class="footer-grid">
+      <!-- Desktop & Tablet Layout -->
+      <div v-if="false" class="footer-grid desktop-footer-content">
         <!-- Column 1: Brand -->
         <div class="footer-col brand-col">
           <div class="footer-logo-wrapper">
@@ -198,6 +199,37 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Mobile App Style Footer -->
+      <div class="mobile-footer-content">
+        <div class="footer-logo-wrapper text-center">
+          <router-link to="/">
+            <img src="/AJAKLogo/LOGO.png" alt="AJAK! Logo" class="footer-logo-img" />
+          </router-link>
+          <span class="logo-tagline text-center">Antar Jemput Anak Konser</span>
+        </div>
+        <p v-if="false" class="brand-desc text-center mt-3">
+          Solusi Shuttle Bus Konser Terpercaya di Indonesia
+        </p>
+        <div v-if="false" class="social-links justify-center mt-3">
+          <a href="#" class="social-btn" aria-label="X">
+            <X class="social-icon" />
+          </a>
+          <a href="#" class="social-btn" aria-label="TikTok">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="social-icon">
+              <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+            </svg>
+          </a>
+          <a href="#" class="social-btn" aria-label="Instagram">
+            <Instagram class="social-icon" />
+          </a>
+        </div>
+        <div v-if="false" class="mobile-legal-links mt-4">
+          <router-link to="/help?tab=syarat">Syarat & Ketentuan</router-link>
+          <span class="dot-sep">•</span>
+          <router-link to="/help?tab=kebijakan">Kebijakan Privasi</router-link>
         </div>
       </div>
 
@@ -501,20 +533,115 @@ onBeforeUnmount(() => {
   }
 }
 
+.mobile-footer-content {
+  display: none;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-3 {
+  margin-top: 12px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mobile-legal-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+}
+
+.mobile-legal-links a {
+  color: var(--text-light);
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.mobile-legal-links a:hover {
+  color: var(--primary);
+}
+
+.dot-sep {
+  color: rgba(201, 76, 76, 0.25);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 768px) {
   .footer {
-    padding: 50px 0 20px;
+    padding: 30px 0 80px !important;
   }
 
-  .footer-nav-columns {
+  .footer-container {
+    gap: 12px !important;
+  }
+
+  .footer-divider {
+    margin: 8px 0 !important;
+  }
+
+  .desktop-footer-content {
+    display: none !important;
+  }
+
+  .mobile-footer-content {
+    display: flex !important;
     flex-direction: column;
-    gap: 30px;
+    align-items: center;
+    gap: 6px !important;
+  }
+
+  .mobile-footer-content .footer-logo-wrapper {
+    width: 100%;
+    max-width: 120px;
+    align-items: center;
+  }
+
+  .mobile-footer-content .footer-logo-img {
+    margin-left: 0;
+    object-position: center;
+    height: 38px !important;
+  }
+
+  .mobile-footer-content .logo-tagline {
+    font-size: 0.45rem !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.2px !important;
+    display: block !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+  }
+
+  .mobile-footer-content .brand-desc {
+    max-width: 280px;
+    margin: 0 auto;
+    font-size: 0.82rem;
+    line-height: 1.5;
   }
 
   .footer-bottom {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    justify-content: center !important;
+    align-items: center;
+  }
+
+  .copyright {
+    text-align: center;
+    width: 100%;
+    font-size: 0.68rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 }
 </style>

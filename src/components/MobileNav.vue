@@ -12,13 +12,17 @@ const navItems = [
   { id: 'home',      label: 'Beranda', icon: Home,     route: '/' },
   { id: 'events',    label: 'Event',   icon: Calendar, route: '/events' },
   { id: 'services',  label: 'Layanan', icon: Layers,   route: null },
-  { id: 'discovery', label: 'Penjemputan', icon: MapPin,   route: null },
+  { id: 'profile',   label: 'Profile', icon: User,     route: '/profile' },
 ];
 
 const isOnHome = computed(() => route.path === '/');
 
 const onScroll = () => {
   if (!isOnHome.value) return;
+  if (window.innerWidth <= 768) {
+    activeSection.value = 'home';
+    return;
+  }
   const sections = ['vibes', 'services', 'discovery', 'Tentang', 'reviews'];
   let current = 'home';
   for (const id of sections) {
@@ -58,7 +62,7 @@ const goProfile = () => {
 };
 
 const isProfileActive = computed(() => {
-  return route.path.startsWith('/profile') || route.path === '/login';
+  return route.path.startsWith('/profile') || route.path === '/login' || route.path === '/dashboard';
 });
 
 const isEventActive = computed(() => {
@@ -67,12 +71,14 @@ const isEventActive = computed(() => {
 
 const getItemActive = (item) => {
   if (item.id === 'events') return isEventActive.value;
+  if (item.id === 'profile') return isProfileActive.value;
   if (!isOnHome.value) return false;
   return activeSection.value === item.id || (item.id === 'home' && activeSection.value === 'home');
 };
 
 const activeIndex = computed(() => {
   if (isEventActive.value) return 1;
+  if (isProfileActive.value) return 3;
   if (!isOnHome.value) return -1;
   return navItems.findIndex(i => i.id === activeSection.value);
 });

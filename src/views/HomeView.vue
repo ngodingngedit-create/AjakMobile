@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ShieldCheck, Bus, Zap, Coffee, Sofa, MapPin, Navigation, Search, ArrowRight, Users, Baby, X, Calendar, Star, Clock, Tag, ChevronLeft, ChevronRight, Car, Building2, Plane } from 'lucide-vue-next';
+import { ShieldCheck, Bus, BusFront, Zap, Coffee, Sofa, MapPin, Navigation, Search, ArrowRight, Users, User, Baby, X, Calendar, Star, Clock, Tag, ChevronLeft, ChevronRight, Car, Building2, Plane, Wallet, Plus, LayoutGrid, Key, Bell, CreditCard, Ticket, Bed, Target, Layers, Info } from 'lucide-vue-next';
 import { bookingStore } from '../store/booking';
+import { authState } from '../store/auth';
 
 const router = useRouter();
 
@@ -47,6 +48,17 @@ const resetAutoplay = () => {
 // Hero Category Pills State (Traveloka Style)
 const activeCategory = ref('shuttle-bersama');
 const heroSearchQuery = ref('');
+const isStickyServices = ref(false);
+const activeStickyCategory = ref(null);
+
+const checkScroll = () => {
+  const ctaEl = document.querySelector('.mobile-video-cta');
+  if (ctaEl) {
+    isStickyServices.value = window.scrollY > (ctaEl.offsetTop - 50);
+  } else {
+    isStickyServices.value = window.scrollY > 450;
+  }
+};
 
 const handleHeroSearchSubmit = () => {
   if (!heroSearchQuery.value.trim()) return;
@@ -143,11 +155,15 @@ onMounted(() => {
 
   fetchUpcomingEvents();
   fetchPickupLocations();
+
+  window.addEventListener('scroll', checkScroll, { passive: true });
+  checkScroll();
 });
 
 onUnmounted(() => {
   if (heroInterval) clearInterval(heroInterval);
   if (ekslusifInterval) clearInterval(ekslusifInterval);
+  window.removeEventListener('scroll', checkScroll);
 });
 
 // API Data
@@ -195,7 +211,9 @@ const fetchUpcomingEvents = async () => {
             tag: 'Shuttle Bersama',
             bus_type: 'MINIBUS',
             plate_number: '-',
-            seats: seats
+            seats: seats,
+            seat_layout: item.seat_layout || '-',
+            facilities: item.facilities || []
           };
       });
     }
@@ -342,6 +360,17 @@ const tagColors = {
   Jazz: '#1565C0',
   EDM: '#6D1B7B',
 };
+
+// Toast notification for mobile actions
+const showToast = ref(false);
+const toastMessage = ref('');
+const triggerToast = (msg) => {
+  toastMessage.value = msg;
+  showToast.value = true;
+  setTimeout(() => {
+    showToast.value = false;
+  }, 3000);
+};
 </script>
 
 <template>
@@ -450,7 +479,18 @@ const tagColors = {
           </div>
         </div>
 
-        <!-- Hero Overlay Content & Category Buttons -->
+        <!-- Slider Pagination Dots (Mobile Only) -->
+        <div class="mobile-slider-dots">
+          <span 
+            v-for="(img, index) in heroImages" 
+            :key="index" 
+            class="mobile-dot"
+            :class="{ active: index === currentHeroIndex }"
+            @click="goToSlide(index)"
+          ></span>
+        </div>
+
+        <!-- Hero Overlay Content & Category Buttons (Desktop Only) -->
         <div class="hero-overlay-content">
           <div class="hero-header-text">
             <h1 class="hero-title">Berangkat ke Event Favoritmu Tanpa Ribet</h1>
@@ -490,14 +530,104 @@ const tagColors = {
           </div>
         </div>
       </div>
+
+
+      <!-- Mobile-Only Hero Layout Dashboard (Visible only on mobile <= 768px) -->
+      <div class="mobile-dashboard-container">
+        <!-- Greeting Row -->
+        <div class="mobile-greeting-row">
+          <span class="mobile-greeting-text">Hai <strong>{{ authState.user ? authState.user.name.toUpperCase() : 'TAMU' }}</strong>!</span>
+          <div class="mobile-greeting-decor">
+            <img src="/AJAKLogo/LOGO.png" alt="AJAK!" class="greeting-logo-img" />
+          </div>
+        </div>
+
+        <!-- Services Grid (Match Image: 8 items in 4 columns grid) -->
+        <div class="mobile-services-grid">
+          <!-- Shuttle -->
+          <button class="service-item" @click="selectHeroCategory({ id: 'shuttle-bersama', target: '#vibes' })">
+            <div class="service-icon-bg bg-peach">
+              <Bus :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Shuttle</span>
+          </button>
+
+          <!-- Konser -->
+          <button class="service-item" @click="router.push('/events')">
+            <div class="service-icon-bg bg-peach">
+              <Ticket :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Konser</span>
+          </button>
+
+          <!-- Eksklusif -->
+          <button class="service-item" @click="triggerToast('Layanan Shuttle Eksklusif sedang disiapkan!')">
+            <div class="service-icon-bg bg-peach">
+              <Sofa :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Eksklusif</span>
+          </button>
+
+          <!-- Jemput -->
+          <button class="service-item" @click="selectHeroCategory({ id: 'penjemputan', target: '#discovery' })">
+            <div class="service-icon-bg bg-peach">
+              <Target :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Jemput</span>
+          </button>
+
+          <!-- Rental -->
+          <button class="service-item" @click="triggerToast('Rental Mobil Coming Soon!')">
+            <div class="service-icon-bg bg-peach">
+              <span class="service-badge-tag badge-soon">Soon</span>
+              <Key :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Rental</span>
+          </button>
+
+          <!-- Hotel -->
+          <button class="service-item" @click="triggerToast('Hotel Booking Coming Soon!')">
+            <div class="service-icon-bg bg-peach">
+              <span class="service-badge-tag badge-soon">Soon</span>
+              <Bed :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Hotel</span>
+          </button>
+
+          <!-- Pesawat -->
+          <button class="service-item" @click="triggerToast('Tiket Pesawat Coming Soon!')">
+            <div class="service-icon-bg bg-peach">
+              <span class="service-badge-tag badge-soon">Soon</span>
+              <Plane :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Pesawat</span>
+          </button>
+
+          <!-- Lainnya -->
+          <button class="service-item" @click="triggerToast('Layanan Lainnya sedang disiapkan!')">
+            <div class="service-icon-bg bg-peach">
+              <LayoutGrid :size="22" class="red-icon" />
+            </div>
+            <span class="service-label">Lainnya</span>
+          </button>
+        </div>
+      </div>
     </section>
 
     <!-- ===== UPCOMING VIBES ===== -->
     <section class="section vibes-section" id="vibes">
       <div class="container">
-        <div class="section-title-box text-center mb-5">
-          <h2 class="creative-title">Event <span class="text-primary">Mendatang</span></h2>
-          <div class="title-underline mx-auto"></div>
+        <!-- Mobile Only Video CTA Banner -->
+        <div class="mobile-video-cta">
+          <video 
+            src="/mobile/CTAAJAKS.mp4" 
+            autoplay 
+            loop 
+            muted 
+            playsinline 
+            webkit-playsinline
+            class="cta-video"
+          ></video>
         </div>
 
         <div class="events-cards">
@@ -507,45 +637,81 @@ const tagColors = {
             class="event-card"
             @click="openEventModal(event)"
           >
-            <div class="event-card-img">
-              <img :src="event.image" :alt="event.name" />
-              <div class="event-img-overlay"></div>
-              <div class="event-genre-tag" :style="{ background: tagColors[event.tag] }">
-                {{ event.tag }}
-              </div>
-            </div>
-            <div class="event-card-body">
-              <div class="event-city-text">{{ event.city }}</div>
-              <h3 class="event-name">{{ event.name }}</h3>
-              <div class="event-organizer">Oleh {{ event.organizer }}</div>
-              <div class="event-meta">
-                <div class="meta-row">
-                  <Calendar :size="13" />
-                  <span>{{ event.dateLabel }} · {{ event.time }}</span>
-                </div>
-                <div class="meta-row">
-                  <MapPin :size="13" />
-                  <span>{{ event.location }}</span>
+            <!-- Desktop Layout (hidden on mobile) -->
+            <div class="event-card-desktop">
+              <div class="event-card-img">
+                <img :src="event.image" :alt="event.name" />
+                <div class="event-img-overlay"></div>
+                <div class="event-genre-tag" :style="{ background: tagColors[event.tag] }">
+                  {{ event.tag }}
                 </div>
               </div>
-              <div class="event-card-footer">
-                <div class="event-price-block">
-                  <span class="price-label">Mulai dari</span>
-                  <div style="display: flex; flex-direction: column;">
-                    <span class="event-price">{{ event.price }}</span>
-                    <span style="font-size: 0.75rem; color: #000000; font-weight: 600;">*Termasuk tiket ancol</span>
+              <div class="event-card-body">
+                <div class="event-city-text">{{ event.city }}</div>
+                <h3 class="event-name">{{ event.name }}</h3>
+                <div class="event-organizer">Oleh {{ event.organizer }}</div>
+                <div class="event-meta">
+                  <div class="meta-row">
+                    <Calendar :size="13" />
+                    <span>{{ event.dateLabel }} · {{ event.time }}</span>
+                  </div>
+                  <div class="meta-row">
+                    <MapPin :size="13" />
+                    <span>{{ event.location }}</span>
                   </div>
                 </div>
-                <button class="book-now-btn">
-                  Pesan Sekarang →
-                </button>
+                <div class="event-card-footer">
+                  <div class="event-price-block">
+                    <span class="price-label">Mulai dari</span>
+                    <div style="display: flex; flex-direction: column;">
+                      <span class="event-price">{{ event.price }}</span>
+                      <span style="font-size: 0.75rem; color: #000000; font-weight: 600;">*Termasuk tiket ancol</span>
+                    </div>
+                  </div>
+                  <button class="book-now-btn">
+                    Pesan Sekarang →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Layout (visible only on mobile) -->
+            <div class="event-card-mobile">
+              <div class="mobile-card-img-wrapper">
+                <span class="mobile-card-location-badge">{{ event.facilities && event.facilities[0] ? event.facilities[0].split(' ')[0] : 'Ancol' }}</span>
+                <img :src="event.image" :alt="event.name" class="mobile-card-img" />
+              </div>
+              
+              <div class="mobile-card-body">
+                <!-- Event Name -->
+                <h3 class="mobile-card-title">{{ event.name }}</h3>
+                
+                <!-- Date Row -->
+                <div class="mobile-card-date">
+                  <Calendar :size="14" class="date-icon" />
+                  <span>{{ event.dateLabel }}</span>
+                </div>
+                
+                <!-- Price -->
+                <div class="mobile-card-price">{{ event.price }}</div>
+
+                <!-- Dashed Divider -->
+                <div class="mobile-card-divider"></div>
+
+                <!-- Creator -->
+                <div class="mobile-card-creator">
+                  <div class="creator-avatar">
+                    <User :size="12" class="creator-avatar-icon" />
+                  </div>
+                  <span class="creator-name">{{ event.organizer || 'Ajak! Partner' }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- View all CTA -->
-        <div class="view-all-wrap">
+        <div v-if="false" class="view-all-wrap">
           <button class="view-all-btn" @click="router.push('/events')">
             Lihat Semua Event
             <ArrowRight :size="18" />
@@ -730,14 +896,107 @@ const tagColors = {
       </div>
     </section>
 
-    <!-- WhatsApp Floating Button -->
-    <a href="https://wa.me/6281287728920" target="_blank" class="wa-float-btn" title="Hubungi Kami via WhatsApp">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" />
-    </a>
+
+    <!-- Custom Beautiful Slide-Up Toast (Mobile Only) -->
+    <transition name="toast-fade">
+      <div v-if="showToast" class="mobile-toast">
+        <span class="toast-text">{{ toastMessage }}</span>
+      </div>
+    </transition>
+
+    <!-- Sticky Services Filter Bar (Mobile only) -->
+    <Teleport to="body">
+      <transition name="fade-slide">
+        <div v-if="isStickyServices" class="mobile-sticky-services-bar">
+          <!-- Shuttle -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'shuttle-bersama' }"
+            @click="activeStickyCategory = 'shuttle-bersama'; selectHeroCategory({ id: 'shuttle-bersama', target: '#vibes' })"
+          >
+            <Bus :size="12" />
+            <span>Shuttle</span>
+          </button>
+
+          <!-- Konser -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'event-konser' }"
+            @click="activeStickyCategory = 'event-konser'; selectHeroCategory({ id: 'event-konser', isRoute: true, to: '/events' })"
+          >
+            <Ticket :size="12" />
+            <span>Konser</span>
+          </button>
+
+          <!-- Eksklusif -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'eksklusif' }"
+            @click="activeStickyCategory = 'eksklusif'; triggerToast('Layanan Shuttle Eksklusif sedang disiapkan!')"
+          >
+            <Sofa :size="12" />
+            <span>Eksklusif</span>
+          </button>
+
+          <!-- Jemput -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'penjemputan' }"
+            @click="activeStickyCategory = 'penjemputan'; selectHeroCategory({ id: 'penjemputan', target: '#discovery' })"
+          >
+            <Target :size="12" />
+            <span>Jemput</span>
+          </button>
+
+          <!-- Rental -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'rental-mobil' }"
+            @click="activeStickyCategory = 'rental-mobil'; triggerToast('Rental Mobil Coming Soon!')"
+          >
+            <Key :size="12" />
+            <span>Rental</span>
+          </button>
+
+          <!-- Hotel -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'hotel' }"
+            @click="activeStickyCategory = 'hotel'; triggerToast('Hotel Booking Coming Soon!')"
+          >
+            <Bed :size="12" />
+            <span>Hotel</span>
+          </button>
+
+          <!-- Pesawat -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'pesawat' }"
+            @click="activeStickyCategory = 'pesawat'; triggerToast('Tiket Pesawat Coming Soon!')"
+          >
+            <Plane :size="12" />
+            <span>Pesawat</span>
+          </button>
+
+          <!-- Lainnya -->
+          <button 
+            class="sticky-service-item" 
+            :class="{ active: activeStickyCategory === 'lainnya' }"
+            @click="activeStickyCategory = 'lainnya'; triggerToast('Layanan Lainnya sedang disiapkan!')"
+          >
+            <LayoutGrid :size="12" />
+            <span>Lainnya</span>
+          </button>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
+.mobile-video-cta {
+  display: none;
+}
 /* ===== GLOBAL TOKENS ===== */
 .text-gradient {
   background: linear-gradient(135deg, #ff6b6b, #ff9a9a);
@@ -1088,185 +1347,215 @@ const tagColors = {
   .hero-section {
     min-height: auto;
     padding: 0;
-    background: linear-gradient(160deg, #D85555 0%, #C94C4C 50%, #B03A3A 100%) !important;
-    border-bottom-left-radius: 24px !important;
-    border-bottom-right-radius: 24px !important;
+    background: #fbfbfb !important;
     overflow: visible !important;
-    margin-bottom: 45px !important;
+    margin-bottom: 20px !important;
+    border-radius: 0 !important;
   }
   .slider-track,
   .slider-card {
-    display: none !important;
+    display: block !important;
+    width: 100%;
+    height: 100%;
   }
   .slider-wrapper {
-    height: auto !important;
-    min-height: unset !important;
-    padding: 0 !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 280px !important; /* Taller slider on mobile view to show more of slides */
+    overflow: hidden !important;
+    border-bottom-left-radius: 20px !important;
+    border-bottom-right-radius: 20px !important;
+    background: #111 !important;
     margin-top: 0 !important;
-    overflow: visible !important;
     border-radius: 0 !important;
-    background: transparent !important;
   }
   .hero-overlay-content {
-    position: relative !important;
-    inset: auto !important;
-    padding-top: 14px !important;
-    padding-bottom: 0px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    width: 100% !important;
-    pointer-events: auto !important;
-    z-index: 10 !important;
-  }
-  .hero-header-text {
     display: none !important;
   }
 
-  /* Mobile Search Bar ABOVE Category Card (Shifted up, slimmed down & reduced roundedness) */
-  .hero-mobile-search-bar {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-    width: calc(100% - 32px) !important;
-    max-width: 400px !important;
-    height: 40px !important;
-    margin: 0 auto 6px !important;
-    padding: 0 14px !important;
-    border-radius: 14px !important;
-    background: var(--card-bg, #ffffff) !important;
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12) !important;
-    pointer-events: auto !important;
+  /* Mobile Slider dots */
+  .mobile-slider-dots {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 40;
   }
-  .hero-mobile-search-bar .search-ico {
-    color: var(--primary) !important;
-    flex-shrink: 0 !important;
+  .mobile-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: all 0.3s ease;
   }
-  .hero-mobile-search-bar input {
-    flex: 1 !important;
-    border: none !important;
-    background: transparent !important;
-    outline: none !important;
-    font-family: inherit !important;
-    font-size: 0.84rem !important;
-    font-weight: 600 !important;
-    color: var(--text-dark) !important;
-  }
-  .hero-mobile-search-bar input::placeholder {
-    color: var(--text-light) !important;
-    font-weight: 500 !important;
-  }
-  .hero-mobile-search-bar .clear-search {
-    background: none !important;
-    border: none !important;
-    color: var(--text-light) !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+  .mobile-dot.active {
+    width: 12px;
+    border-radius: 2.5px;
+    background: var(--primary, #C94C4C) !important;
   }
 
-  /* Category Menu Card Floating On Top of Hero Overlay Content Edge */
-  .category-pills-bar {
-    position: relative !important;
-    z-index: 25 !important;
-    width: calc(100% - 32px) !important;
-    max-width: 400px !important;
-    background: var(--card-bg, #ffffff) !important;
-    border-radius: 18px !important;
-    box-shadow: 0 14px 28px -4px rgba(0, 0, 0, 0.16), 0 6px 12px -2px rgba(201, 76, 76, 0.08) !important;
-    padding: 20px 12px 18px !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 14px 4px !important;
-    margin: 0 auto -40px !important;
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.06)) !important;
-    pointer-events: auto !important;
+  /* Mobile Dashboard Container (includes greeting row) */
+  .mobile-dashboard-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 10px 16px 6px; /* 16px sides aligns content with screen boundary lines */
+    box-sizing: border-box;
+    background: #ffffff;
+    margin-top: -50px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    position: relative;
+    z-index: 51;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04);
   }
-  .category-pill-btn {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 5px !important;
-    padding: 2px !important;
-    background: transparent !important;
-    border: none !important;
-    color: var(--text-dark) !important;
-    text-shadow: none !important;
-    transform: none !important;
-    box-shadow: none !important;
+
+  /* Greeting row inside the unified card */
+  .mobile-greeting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   }
-  .category-pill-btn:hover,
-  .category-pill-btn.active {
-    background: transparent !important;
-    border: none !important;
-    transform: none !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
+  .mobile-greeting-text {
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: #2d2d2d;
+    letter-spacing: 0.01em;
+    margin-left: 4px;
   }
-  .cat-badge {
-    font-size: 0.46rem !important;
-    font-weight: 900 !important;
-    padding: 1px 5px !important;
-    border-radius: 5px !important;
-    top: -7px !important;
-    border: 1px solid #ffffff !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18) !important;
-    letter-spacing: 0.2px !important;
+  .mobile-greeting-text strong {
+    font-weight: 600;
+    color: #1a1a1a;
   }
-  .cat-icon-wrapper {
-    width: 38px !important;
-    height: 38px !important;
-    border-radius: 50% !important;
-    background: rgba(201, 76, 76, 0.08) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    color: var(--primary) !important;
-    transition: all 0.2s ease !important;
+  .mobile-greeting-decor {
+    display: flex;
+    align-items: center;
+    margin-right: 4px;
   }
-  .category-pill-btn.active .cat-icon-wrapper {
-    background: var(--primary) !important;
-    color: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(201, 76, 76, 0.35) !important;
+  .greeting-logo-img {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
   }
-  .cat-icon {
-    width: 18px !important;
-    height: 18px !important;
+
+  /* Gojek-style Services Grid */
+  .mobile-services-grid {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    width: calc(100% + 32px);
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 10px 16px;
+    box-sizing: border-box;
+    scrollbar-width: none; /* Hide scrollbar Firefox */
   }
-  .cat-label {
-    font-size: 0.6rem !important;
-    font-weight: 600 !important;
-    color: var(--text-dark) !important;
-    text-align: center !important;
-    line-height: 1.15 !important;
-    text-shadow: none !important;
-    white-space: normal !important;
+  .mobile-services-grid::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari/Opera */
   }
-  .nav-arrow {
-    width: 34px;
-    height: 34px;
+  .service-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    padding: 2px 0;
+    flex: 0 0 68px; /* Prevent shrinking and maintain layout on horizontal scroll */
   }
-  .nav-arrow svg {
-    width: 16px;
-    height: 16px;
+  .service-icon-bg {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px; /* Less rounded/more squarer */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+    position: relative; /* Relative target for the Soon badge */
   }
-  .nav-arrow.arrow-left {
-    left: 12px;
+  .service-item:active .service-icon-bg {
+    transform: scale(0.9);
   }
-  .nav-arrow.arrow-right {
-    right: 12px;
+  .service-label {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #2d2d2d;
+    text-align: center;
+    margin-top: 8px;
+    line-height: 1.25;
+    white-space: normal;
   }
-  .slider-indicators-inside {
-    bottom: 12px;
+  
+  /* Service colors & icons */
+  .bg-peach {
+    background: #fff0f0;
   }
-  .slider-indicators-inside .indicator-dot {
-    width: 6px;
-    height: 6px;
+  .red-icon {
+    color: #a32222;
   }
-  .slider-indicators-inside .indicator-dot.active {
-    width: 18px;
+  .bg-soon {
+    background: #f7f7f7;
+  }
+  .soon-icon {
+    color: #888888;
+  }
+
+  /* Service badges - 3D Ribbon Fold style */
+  .service-badge-tag {
+    position: absolute;
+    top: -3px; /* snugs cleanly on 12px border radius */
+    left: -2px; /* shifted slightly to the right */
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: #ffffff;
+    padding: 1px 7px 1px 6px;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 0;
+    background: #b12525;
+    z-index: 15;
+    box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.15);
+    line-height: 1.2;
+    font-family: inherit;
+  }
+  .badge-soon::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 3px 3px 0 0; /* scaled down to fit -3px offset */
+    border-color: #601212 transparent transparent transparent;
+  }
+
+  /* Mobile-Only Video CTA */
+  .mobile-video-cta {
+    display: block;
+    width: 100%;
+    margin-bottom: 24px;
+    box-sizing: border-box;
+  }
+  .cta-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  }
+  .vibes-section {
+    padding-top: 0 !important;
+    margin-top: -30px !important;
   }
 }
 
@@ -1275,18 +1564,14 @@ const tagColors = {
     padding: 0;
   }
   .slider-wrapper {
-    height: auto !important;
-    margin-top: 0 !important;
+    height: 240px !important;
     border-radius: 0 !important;
   }
   .slider-card {
-    display: none !important;
+    display: block !important;
   }
   .category-pills-bar {
-    grid-template-columns: repeat(3, 1fr) !important;
-    border-radius: 16px !important;
-    gap: 10px 4px !important;
-    padding: 10px 6px !important;
+    display: none !important;
   }
   .nav-arrow {
     display: none;
@@ -1715,7 +2000,7 @@ const tagColors = {
 }
 
 @media (max-width: 768px) {
-  .hero-section { margin-top: 60px; }
+  .hero-section { margin-top: 0px !important; }
 
   .section {
     padding: 50px 0 !important;
@@ -2104,42 +2389,430 @@ const tagColors = {
 .text-marquee-inner span { position: relative; }
 .text-marquee-inner span:not(:last-child)::after { content: "•"; position: absolute; right: -25px; color: rgba(255,255,255,0.5); }
 
-/* WhatsApp Float Button */
-.wa-float-btn {
+/* Custom slide-up toast notification */
+.mobile-toast {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  background-color: #25D366;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
-  z-index: 999;
-  transition: all 0.3s ease;
+  bottom: 80px; /* above bottom navigation */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(45, 45, 45, 0.95);
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  max-width: 85%;
+  width: max-content;
+  text-align: center;
+  pointer-events: none;
 }
-.wa-float-btn img {
-  width: 35px;
-  height: 35px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+.toast-text {
+  font-size: 0.8rem;
+  font-weight: 700;
 }
-.wa-float-btn:hover {
-  transform: translateY(-5px) scale(1.05);
-  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.5);
+
+/* Toast animations */
+.toast-fade-enter-active, 
+.toast-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast-fade-enter-from {
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+}
+
+.event-card-mobile {
+  display: none;
 }
 
 @media (max-width: 768px) {
-  .wa-float-btn {
-    bottom: 90px; /* Hindari tertimpa bottom navbar */
-    right: 20px;
-    width: 50px;
-    height: 50px;
+  .events-cards {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory;
+    gap: 16px !important;
+    padding: 4px 4px 16px 4px !important;
+    -webkit-overflow-scrolling: touch;
   }
-  .wa-float-btn img {
-    width: 28px;
-    height: 28px;
+  .events-cards::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .event-card-desktop {
+    display: none !important;
+  }
+  
+  .event-card {
+    background: var(--card-bg, #ffffff) !important;
+    border: none !important;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    padding: 0 !important;
+    display: block !important;
+    transition: all 0.3s ease !important;
+    flex: 0 0 280px !important;
+    scroll-snap-align: start;
+  }
+
+  .event-card-mobile {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .mobile-card-img-wrapper {
+    position: relative;
+    width: 100%;
+    height: 140px;
+  }
+
+  .mobile-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .mobile-card-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    padding: 5px 12px;
+    border-radius: 30px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    z-index: 10;
+  }
+
+  .mobile-card-action-buttons {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .action-circle-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 0.2s;
+  }
+
+  .action-circle-btn:active {
+    background: rgba(15, 23, 42, 0.9);
+  }
+
+  .mobile-card-dots {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+  }
+
+  .mobile-card-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transition: all 0.2s;
+  }
+
+  .mobile-card-dots .dot.active {
+    background: #ffffff;
+    width: 14px;
+    border-radius: 4px;
+  }
+
+  .mobile-card-body {
+    padding: 12px 14px 14px 14px;
+    background: var(--card-bg, #ffffff);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dark, #2A2A2A);
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-card-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 400;
+    margin: 0 0 8px 0;
+  }
+
+  .mobile-card-date .date-icon {
+    color: var(--primary, #C94C4C) !important;
+  }
+
+  .mobile-card-price {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a !important;
+    margin: 0 0 12px 0;
+  }
+
+  .mobile-card-location-badge {
+    position: absolute;
+    top: 12px;
+    left: -3px;
+    background: #b12525 !important;
+    color: #ffffff !important;
+    padding: 3px 12px 3px 8px;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    z-index: 15;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.15);
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+  }
+
+  .mobile-card-location-badge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 3px 3px 0 0;
+    border-color: #601212 transparent transparent transparent;
+  }
+
+  .mobile-card-divider {
+    border-top: 1px dashed #e2e8f0;
+    margin: 0 0 10px 0;
+    width: 100%;
+  }
+
+  .mobile-card-creator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .mobile-card-creator .creator-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    color: #64748b;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-card-creator .creator-avatar-icon {
+    color: #64748b;
+  }
+
+  .mobile-card-creator .creator-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: uppercase;
+  }
+
+  [data-theme="dark"] .mobile-card-creator .creator-avatar {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="dark"] .mobile-card-creator .creator-name {
+    color: #cbd5e1;
+  }
+
+  .mobile-card-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-dark, #1e293b);
+    margin: 0;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+  }
+
+  .mobile-card-location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 400;
+  }
+
+  .mobile-card-location .loc-icon {
+    color: var(--primary, #C94C4C);
+    flex-shrink: 0;
+  }
+
+  .mobile-card-specs-grid {
+    display: none !important;
+  }
+
+  [data-theme="dark"] .mobile-card-specs-grid {
+    display: none !important;
+  }
+
+  .spec-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .spec-icon {
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .truncate-spec {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Hide sections below vibes-section on mobile */
+  .text-marquee-wrap,
+  .pickup-discovery,
+  .amenities-section,
+  .heart-section,
+  .final-cta-section {
+    display: none !important;
+  }
+
+  /* Sticky Services Bar */
+  .mobile-sticky-services-bar {
+    position: fixed;
+    top: 44px;
+    left: 10px;
+    right: 0;
+    z-index: 998;
+    background: #ffffff !important;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08)) !important;
+    box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.12) !important;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 10px 16px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  
+  [data-theme="dark"] .mobile-sticky-services-bar {
+    background: #ffffff !important;
+    border-bottom-color: var(--border-color, rgba(255, 255, 255, 0.08)) !important;
+  }
+  
+  .mobile-sticky-services-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sticky-service-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 16px;
+    background: #f4f4f5;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    color: #888888;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    transition: all 0.2s ease;
+  }
+  
+  [data-theme="dark"] .sticky-service-item {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.02);
+    color: #888888;
+  }
+
+  .sticky-service-item svg {
+    color: #888888 !important;
+    transition: color 0.2s ease;
+  }
+
+  .sticky-service-item.active {
+    background: var(--primary, #C94C4C) !important;
+    color: #ffffff !important;
+    border-color: var(--primary, #C94C4C) !important;
+  }
+
+  .sticky-service-item.active svg {
+    color: #ffffff !important;
+  }
+
+  /* Transition for sticky bar (targeted globally for Teleport elements) */
+  :global(.fade-slide-enter-active),
+  :global(.fade-slide-leave-active) {
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  
+  :global(.fade-slide-enter-from),
+  :global(.fade-slide-leave-to) {
+    transform: translateY(-20px) !important;
+    opacity: 0 !important;
   }
 }
 </style>

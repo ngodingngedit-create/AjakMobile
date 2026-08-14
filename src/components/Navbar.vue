@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { authState } from '../store/auth';
 import { themeStore } from '../store/theme';
-import { User, LogOut, Search, X, Moon, Sun, Home, Calendar, Layers, MapPin, Info, Menu, FileText } from 'lucide-vue-next';
+import { User, LogOut, Search, X, Moon, Sun, Home, Calendar, Layers, MapPin, Info, Menu, FileText, Headphones } from 'lucide-vue-next';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
@@ -114,122 +114,181 @@ const handleSearchSubmit = () => {
   searchQuery.value = '';
 };
 
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }));
-onUnmounted(() => window.removeEventListener('scroll', onScroll));
+const isSearchFocused = ref(false);
+const searchWords = ['Shuttle...', 'Tiket konser...', 'Rental mobil...', 'Hotel...', 'Tiket pesawat...'];
+const currentWordIndex = ref(0);
+const currentWord = computed(() => searchWords[currentWordIndex.value]);
+let wordRotationInterval = null;
+
+const goToProfile = () => {
+  if (authState.isLoggedIn) {
+    router.push('/dashboard');
+  } else {
+    router.push('/login');
+  }
+};
+
+const goToHelp = () => {
+  router.push('/help');
+};
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true });
+  wordRotationInterval = setInterval(() => {
+    currentWordIndex.value = (currentWordIndex.value + 1) % searchWords.length;
+  }, 2500);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll);
+  if (wordRotationInterval) clearInterval(wordRotationInterval);
+});
 </script>
 
 
 <template>
   <header class="navbar" :class="{ 'scrolled': scrolled, 'no-shadow': route.name === 'help', 'transparent-home': isOnHome && !scrolled }">
-    <div class="container navbar-content">
-      <!-- Logo -->
-      <router-link to="/" class="logo">
-        <img src="/AJAKLogo/LOGO.png" alt="AJAK! Logo" class="logo-img" />
-      </router-link>
+    <div v-if="route.name !== 'shuttlebus-detail'" class="container navbar-content">
+      <!-- Desktop Navbar Layout -->
+      <div class="navbar-desktop-layout">
+        <!-- Logo -->
+        <router-link to="/" class="logo">
+          <img src="/AJAKLogo/LOGO.png" alt="AJAK! Logo" class="logo-img" />
+        </router-link>
 
-      <!-- Desktop Nav Links (Non-Home Pages) -->
-      <nav class="nav-links" v-if="!isOnHome">
-        <button
-          v-for="link in navLinks"
-          :key="link.id"
-          class="nav-item"
-          :class="{ active: isLinkActive(link) }"
-          @click="handleNav(link)"
-        >
-          <span class="nav-label-text">{{ link.label }}</span>
-          <component :is="link.icon" size="18" class="nav-icon-mobile" />
-          <span class="nav-dot" v-if="isLinkActive(link)"></span>
-        </button>
-      </nav>
-
-      <!-- Desktop Center Search Bar (Homepage) -->
-      <div class="header-center-search" v-if="isOnHome">
-        <div class="search-box-center">
-          <Search size="17" class="search-box-icon" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Cari armada, rute, atau event konser favoritmu..."
-            @keydown.enter="handleSearchSubmit"
-          />
-          <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''">
-            <X size="14" />
+        <!-- Desktop Nav Links (Non-Home Pages) -->
+        <nav class="nav-links" v-if="!isOnHome">
+          <button
+            v-for="link in navLinks"
+            :key="link.id"
+            class="nav-item"
+            :class="{ active: isLinkActive(link) }"
+            @click="handleNav(link)"
+          >
+            <span class="nav-label-text">{{ link.label }}</span>
+            <component :is="link.icon" size="18" class="nav-icon-mobile" />
+            <span class="nav-dot" v-if="isLinkActive(link)"></span>
           </button>
+        </nav>
+
+        <!-- Desktop Center Search Bar (Homepage) -->
+        <div class="header-center-search" v-if="isOnHome">
+          <div class="search-box-center">
+            <Search size="17" class="search-box-icon" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Cari armada, rute, atau event konser favoritmu..."
+              @keydown.enter="handleSearchSubmit"
+            />
+            <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''">
+              <X size="14" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Search + Language + Auth -->
+        <div class="nav-auth">
+          <!-- Search Bar (expandable on non-home pages) -->
+          <div class="search-wrap" v-if="!isOnHome" :class="{ open: searchOpen }">
+            <transition name="search-expand">
+              <div v-if="searchOpen" class="search-box">
+                <Search size="16" class="search-box-icon" />
+                <input
+                  id="navbar-search-input"
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Cari event..."
+                  @keydown.enter="handleSearchSubmit"
+                  @keydown.escape="toggleSearch"
+                />
+              </div>
+            </transition>
+            <button class="icon-pill-btn search-toggle" @click="toggleSearch">
+              <Search v-if="!searchOpen" size="18" />
+              <X v-else size="18" />
+            </button>
+          </div>
+
+          <!-- Theme Toggle -->
+          <button
+            class="icon-pill-btn theme-toggle-btn"
+            :title="themeStore.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            @click="themeStore.toggle()"
+          >
+            <transition name="theme-icon" mode="out-in">
+              <Moon v-if="!themeStore.isDark" key="moon" size="17" />
+              <Sun v-else key="sun" size="17" />
+            </transition>
+          </button>
+
+          <!-- Language Switcher (Visible in Mobile, replacing profile) -->
+          <div class="lang-switcher">
+            <button class="icon-pill-btn lang-btn" @click="langDropdownOpen = !langDropdownOpen">
+              <img :src="currentLang.flag" :alt="currentLang.code" class="flag-img" />
+            </button>
+            <transition name="fade-drop">
+              <div v-if="langDropdownOpen" class="lang-dropdown">
+                <button v-for="lang in languages" :key="lang.code" class="lang-opt" @click="selectLang(lang)">
+                  <img :src="lang.flag" class="flag-img" />
+                  <span>{{ lang.name }}</span>
+                </button>
+              </div>
+            </transition>
+          </div>
+
+          <!-- Hamburger Menu (Mobile Only) -->
+          <button class="icon-pill-btn hamburger-btn" @click="sidebarOpen = true">
+            <Menu size="18" />
+          </button>
+
+          <!-- Desktop Only Auth (Hidden on Mobile) -->
+          <div class="desktop-auth-area">
+            <template v-if="!authState.isLoggedIn">
+              <router-link to="/login" class="btn btn-outline nav-btn" style="padding: 6px 16px; font-size: 0.8rem; border-radius: 10px; height: 34px; display: flex; align-items: center;">Login</router-link>
+            </template>
+            <template v-else-if="authState.isLoggedIn">
+              <router-link to="/dashboard" class="user-profile-nav">
+                <div class="avatar-sm">
+                  <User size="14" color="var(--primary)" />
+                </div>
+                <span class="user-name-label">{{ authState.user?.name }}</span>
+              </router-link>
+              <button @click="handleLogout" class="icon-pill-btn logout-btn" title="Logout">
+                <LogOut size="18" />
+              </button>
+            </template>
+          </div>
         </div>
       </div>
 
-      <!-- Right: Search + Language + Auth -->
-      <div class="nav-auth">
-        <!-- Search Bar (expandable on non-home pages) -->
-        <div class="search-wrap" v-if="!isOnHome" :class="{ open: searchOpen }">
-          <transition name="search-expand">
-            <div v-if="searchOpen" class="search-box">
-              <Search size="16" class="search-box-icon" />
-              <input
-                id="navbar-search-input"
-                v-model="searchQuery"
-                type="text"
-                placeholder="Cari event..."
-                @keydown.enter="handleSearchSubmit"
-                @keydown.escape="toggleSearch"
-              />
+      <!-- Mobile Navbar Layout (Pill Search + Profile) -->
+      <div class="navbar-mobile-layout">
+        <div class="mobile-nav-search-bar">
+          <Search size="16" class="mobile-nav-search-icon" />
+          <div class="search-input-wrapper">
+            <input
+              v-model="searchQuery"
+              type="text"
+              @focus="isSearchFocused = true"
+              @blur="isSearchFocused = false"
+              @keydown.enter="handleSearchSubmit"
+            />
+            <div v-if="!searchQuery && !isSearchFocused" class="sliding-placeholder-container">
+              <span class="animated-word-wrapper">
+                <Transition name="placeholder-slide" mode="out-in">
+                  <span :key="currentWord" class="animated-word">{{ currentWord }}</span>
+                </Transition>
+              </span>
             </div>
-          </transition>
-          <button class="icon-pill-btn search-toggle" @click="toggleSearch">
-            <Search v-if="!searchOpen" size="18" />
-            <X v-else size="18" />
+          </div>
+          <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''">
+            <X size="12" />
           </button>
         </div>
-
-        <!-- Theme Toggle -->
-        <button
-          class="icon-pill-btn theme-toggle-btn"
-          :title="themeStore.isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
-          @click="themeStore.toggle()"
-        >
-          <transition name="theme-icon" mode="out-in">
-            <Moon v-if="!themeStore.isDark" key="moon" size="17" />
-            <Sun v-else key="sun" size="17" />
-          </transition>
+        <button class="mobile-nav-cs-btn" @click="goToHelp" title="Customer Service">
+          <Headphones size="18" class="mobile-nav-cs-icon" />
         </button>
-
-        <!-- Language Switcher (Visible in Mobile, replacing profile) -->
-        <div class="lang-switcher">
-          <button class="icon-pill-btn lang-btn" @click="langDropdownOpen = !langDropdownOpen">
-            <img :src="currentLang.flag" :alt="currentLang.code" class="flag-img" />
-          </button>
-          <transition name="fade-drop">
-            <div v-if="langDropdownOpen" class="lang-dropdown">
-              <button v-for="lang in languages" :key="lang.code" class="lang-opt" @click="selectLang(lang)">
-                <img :src="lang.flag" class="flag-img" />
-                <span>{{ lang.name }}</span>
-              </button>
-            </div>
-          </transition>
-        </div>
-
-        <!-- Hamburger Menu (Mobile Only) -->
-        <button class="icon-pill-btn hamburger-btn" @click="sidebarOpen = true">
-          <Menu size="18" />
-        </button>
-
-        <!-- Desktop Only Auth (Hidden on Mobile) -->
-        <div class="desktop-auth-area">
-          <template v-if="!authState.isLoggedIn">
-            <router-link to="/login" class="btn btn-outline nav-btn" style="padding: 6px 16px; font-size: 0.8rem; border-radius: 10px; height: 34px; display: flex; align-items: center;">Login</router-link>
-          </template>
-          <template v-else-if="authState.isLoggedIn">
-            <router-link to="/dashboard" class="user-profile-nav">
-              <div class="avatar-sm">
-                <User size="14" color="var(--primary)" />
-              </div>
-              <span class="user-name-label">{{ authState.user?.name }}</span>
-            </router-link>
-            <button @click="handleLogout" class="icon-pill-btn logout-btn" title="Logout">
-              <LogOut size="18" />
-            </button>
-          </template>
-        </div>
       </div>
     </div>
 
@@ -531,30 +590,184 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 .terms-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; color: var(--text-dark); font-size: 0.9rem; line-height: 1.5; font-weight: 600; }
 .terms-list li { padding-left: 8px; }
 
+.navbar-mobile-layout {
+  display: none;
+}
+
 @media (max-width: 768px) {
-  .navbar-content { height: 60px; flex-wrap: nowrap; justify-content: space-between; }
-  .logo { display: flex; }
-  .logo-img { height: 30px; }
+  .navbar-desktop-layout {
+    display: none !important;
+  }
+  .navbar-content {
+    height: auto !important;
+    padding-top: 0 !important;
+    gap: 0 !important;
+  }
+  .navbar-mobile-layout {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+    box-sizing: border-box;
+    padding: 0 4px;
+    height: 34px;
+  }
   
+  .navbar {
+    padding: 5px 0 !important;
+    box-shadow: none !important;
+  }
+
   .navbar.transparent-home {
-    background: linear-gradient(160deg, #D85555 0%, #C94C4C 100%) !important;
+    background: transparent !important;
     border-bottom: none !important;
     box-shadow: none !important;
   }
-  .navbar.transparent-home .logo-img {
-    filter: brightness(0) invert(1);
-  }
-  .navbar.transparent-home .hamburger-btn {
-    background: rgba(255, 255, 255, 0.18) !important;
-    border-color: rgba(255, 255, 255, 0.3) !important;
-    color: #ffffff !important;
+  
+  .navbar.scrolled {
+    background: #ffffff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
   }
 
-  .nav-links, .header-center-search { display: none !important; }
-  .hamburger-btn { display: flex; margin-left: auto; }
-  .desktop-auth-area, .search-wrap { display: none; }
-  .mobile-search-bar { display: none; } /* keep hidden to simplify */
-  .lang-switcher, .theme-toggle-btn { display: none; }
+  /* Mobile Search Pill */
+  .mobile-nav-search-bar {
+    flex: 1;
+    height: 28px;
+    background: #ffffff;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+    margin-left: -6px;
+    margin-right: 14px;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .navbar.scrolled .mobile-nav-search-bar {
+    background: #f4f4f5 !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: none !important;
+  }
+  .search-input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    overflow: hidden;
+  }
+  .search-input-wrapper input {
+    width: 100%;
+    height: 100%;
+    border: none !important;
+    background: transparent !important;
+    outline: none !important;
+    font-size: 0.78rem;
+    font-weight: 300 !important; /* Thin font weight */
+    color: #2d2d2d;
+    padding-left: 6px;
+    font-family: inherit;
+    position: relative;
+    z-index: 2;
+  }
+  .sliding-placeholder-container {
+    position: absolute;
+    left: 6px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1;
+    color: #444444; /* Darker charcoal black placeholder */
+    font-size: 0.78rem;
+    font-weight: 300 !important; /* Thin font weight */
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .animated-word-wrapper {
+    display: inline-flex;
+    position: relative;
+    overflow: hidden;
+    height: 16px;
+    margin-left: 3px;
+    align-items: center;
+  }
+  .animated-word {
+    display: inline-block;
+    white-space: nowrap;
+    color: #444444; /* Darker charcoal black word */
+    font-weight: 300 !important; /* Thin font weight */
+  }
+  .mobile-nav-search-icon {
+    color: var(--primary); /* red color #C94C4C */
+    flex-shrink: 0;
+    width: 13px !important;
+    height: 13px !important;
+  }
+  .mobile-nav-search-bar .clear-search-btn {
+    background: none;
+    border: none;
+    color: #888888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    z-index: 3;
+  }
+  .mobile-nav-search-bar .clear-search-btn svg {
+    width: 10px !important;
+    height: 10px !important;
+  }
+
+  /* Mobile CS Circle button */
+  .mobile-nav-cs-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    padding: 0;
+    flex-shrink: 0;
+    margin-right: -4px;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .navbar.scrolled .mobile-nav-cs-btn {
+    background: #f4f4f5 !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: none !important;
+  }
+  .mobile-nav-cs-icon {
+    color: var(--primary); /* red color */
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  /* Placeholder slide transition */
+  .placeholder-slide-enter-active,
+  .placeholder-slide-leave-active {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  }
+  .placeholder-slide-enter-from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  .placeholder-slide-leave-to {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
 }
 
 /* Center Search Bar on Desktop (Home page) */
