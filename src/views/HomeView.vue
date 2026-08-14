@@ -2437,7 +2437,7 @@ const triggerToast = (msg) => {
     overflow-x: auto !important;
     scroll-snap-type: x mandatory;
     gap: 16px !important;
-    padding: 4px 4px 16px 4px !important;
+    padding: 4px 16px 16px 16px !important;
     -webkit-overflow-scrolling: touch;
   }
   .events-cards::-webkit-scrollbar {
@@ -2457,8 +2457,8 @@ const triggerToast = (msg) => {
     padding: 0 !important;
     display: block !important;
     transition: all 0.3s ease !important;
-    flex: 0 0 280px !important;
-    scroll-snap-align: start;
+    flex: 0 0 calc(100vw - 32px) !important;
+    scroll-snap-align: center;
   }
 
   .event-card-mobile {
@@ -2470,12 +2470,17 @@ const triggerToast = (msg) => {
   .mobile-card-img-wrapper {
     position: relative;
     width: 100%;
-    height: 140px;
+    height: auto;
+    background-color: #f8fafc;
+    overflow: hidden;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
   }
 
   .mobile-card-img {
     width: 100%;
-    height: 100%;
+    height: auto;
+    display: block;
     object-fit: cover;
     border-radius: 12px 12px 0 0;
   }
