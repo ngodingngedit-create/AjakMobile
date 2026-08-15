@@ -1520,6 +1520,26 @@ const toggleTicketAccordion = (ticketId) => {
   }
 };
 
+const getTicketSelectedQty = (ticketId) => {
+  if (selectedTicket.value?.id !== ticketId) return 0;
+  return selectedseats.value.length;
+};
+
+const handleDecreaseTicketQty = (t) => {
+  if (selectedTicket.value?.id !== t.id || selectedseats.value.length === 0) return;
+  const key = currentSelectionKey.value;
+  if (key && selectedseatsMap.value[key]) {
+    if (selectedseatsMap.value[key].length === 1) {
+      selectedTicket.value = null;
+      selectedseatsMap.value[key] = [];
+    } else {
+      selectedseatsMap.value[key] = selectedseatsMap.value[key].slice(0, selectedseatsMap.value[key].length - 1);
+    }
+    quantity.value = Math.max(1, selectedseatsMap.value[key].length);
+    validateseats();
+  }
+};
+
 const clearSelectedTicket = () => {
   const savedY = sessionStorage.getItem('booking_scroll_y');
   if (route.hash === '#seatmap') {
@@ -1954,7 +1974,7 @@ const tryAutoplay = () => {
     <!-- MOBILE REDESIGN VIEW (Visible on mobile only when currentStep === 1) -->
     <div v-if="isMobile && currentStep === 1" class="mobile-redesign-layout">
       <!-- Header Banner Image & Back Button overlay -->
-      <div class="mobile-header-banner">
+      <div v-if="activeTab !== 'tiket'" class="mobile-header-banner">
         <button class="mobile-back-circle-btn" @click="goBack" aria-label="Back">
           <ChevronLeft :size="24" />
         </button>
@@ -1962,7 +1982,7 @@ const tryAutoplay = () => {
       </div>
 
       <!-- Thumbnails Gallery -->
-      <div class="mobile-gallery-row">
+      <div v-if="activeTab !== 'tiket'" class="mobile-gallery-row">
         <img :src="event.image" class="gallery-thumb" />
         <img src="/bus_parkir2.png" class="gallery-thumb" />
         <div class="gallery-thumb last-thumb">
@@ -1994,6 +2014,60 @@ const tryAutoplay = () => {
         >
           Syarat &amp; Ketentuan
         </button>
+      </div>
+
+      <!-- Sticky Date Slider (Only shown in Tiket tab on mobile) -->
+      <div v-if="activeTab === 'tiket'" class="mobile-sticky-date-slider">
+        <div class="date-slider-container">
+          <div class="date-slider-scroll" @wheel="handleWheelScroll">
+            <button 
+              v-for="d in dateOptions" 
+              :key="d.id"
+              class="date-slider-item"
+              :class="{ 
+                active: selectedDate === d.id,
+                disabled: d.enabled === false
+              }"
+              :disabled="d.enabled === false"
+              @click="d.enabled !== false ? selectedDate = d.id : null"
+            >
+              <span class="date-slider-day">{{ d.shortDay }}</span>
+              <span class="date-slider-val">{{ d.shortDate }}</span>
+            </button>
+          </div>
+          <div class="date-slider-divider"></div>
+          <div class="calendar-btn-wrapper" ref="calendarBtnWrapperRef">
+            <button class="date-slider-calendar-btn" aria-label="Pilih Tanggal" @click="toggleCalendarPopup">
+              <Calendar :size="28" />
+            </button>
+            <transition name="fade-in-scale">
+              <div v-if="showCalendarPopup" class="mini-calendar-popup">
+                <div class="mini-cal-header">
+                  <span class="mini-cal-month">{{ calendarMonthYear }}</span>
+                </div>
+                <div class="mini-cal-weekdays">
+                  <span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span><span>M</span>
+                </div>
+                <div class="mini-cal-grid">
+                  <button 
+                    v-for="day in juneDays" 
+                    :key="day.num"
+                    class="mini-cal-day-btn"
+                    :class="{ 
+                      'is-concert': day.isConcert, 
+                      'active': selectedDate === day.concertId,
+                      'disabled': !day.isConcert 
+                    }"
+                    :disabled="!day.isConcert"
+                    @click="selectDateFromCalendar(day.concertId)"
+                  >
+                    {{ day.num }}
+                  </button>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
       </div>
 
       <!-- Mobile Tab Content -->
@@ -2065,84 +2139,26 @@ const tryAutoplay = () => {
 
         <!-- Tiket Tab Content (Original booking mechanics inline) -->
         <div v-else-if="activeTab === 'tiket'" class="mobile-tab-tickets-content" style="padding: 16px 16px 32px;">
-          <!-- Hari & Sesi Section -->
-          <div class="outer-section-group filters-group mobile-filters-card" style="background: #ffffff; border-radius: 16px; padding: 18px 16px; border: 1px solid #edf2f7; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
-            <h3 class="outer-section-title" style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 16px 0; letter-spacing: -0.2px;">Hari &amp; Sesi</h3>
-            
-            <!-- Date slider -->
-            <div class="date-slider-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
-              <div class="date-slider-scroll" @wheel="handleWheelScroll" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; flex-grow: 1;">
-                <button 
-                  v-for="d in dateOptions" 
-                  :key="d.id"
-                  class="date-slider-item"
-                  :class="{ 
-                    active: selectedDate === d.id,
-                    disabled: d.enabled === false
-                  }"
-                  :disabled="d.enabled === false"
-                  @click="d.enabled !== false ? selectedDate = d.id : null"
-                >
-                  <span class="date-slider-day">{{ d.shortDay }}</span>
-                  <span class="date-slider-val">{{ d.shortDate }}</span>
-                </button>
-              </div>
-              <div class="date-slider-divider" style="width: 1px; height: 32px; background: #e2e8f0; margin: 0 8px;"></div>
-              <div class="calendar-btn-wrapper" ref="calendarBtnWrapperRef" style="position: relative;">
-                <button class="date-slider-calendar-btn" aria-label="Pilih Tanggal" @click="toggleCalendarPopup" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                  <Calendar :size="18" />
-                </button>
-                <transition name="fade-in-scale">
-                  <div v-if="showCalendarPopup" class="mini-calendar-popup" style="position: absolute; right: 0; bottom: 44px; z-index: 100; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 250px;">
-                    <div class="mini-cal-header" style="text-align: center; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
-                      <span class="mini-cal-month">{{ calendarMonthYear }}</span>
-                    </div>
-                    <div class="mini-cal-weekdays" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.65rem; color: #64748b; font-weight: 700; margin-bottom: 6px;">
-                      <span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span><span>M</span>
-                    </div>
-                    <div class="mini-cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
-                      <button 
-                        v-for="day in juneDays" 
-                        :key="day.num"
-                        class="mini-cal-day-btn"
-                        :class="{ 
-                          'is-concert': day.isConcert, 
-                          'active': selectedDate === day.concertId,
-                          'disabled': !day.isConcert 
-                        }"
-                        :disabled="!day.isConcert"
-                        @click="selectDateFromCalendar(day.concertId)"
-                        style="height: 28px; width: 28px; border-radius: 50%; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; border: none; background: transparent;"
-                      >
-                        {{ day.num }}
-                      </button>
-                    </div>
-                  </div>
-                </transition>
-              </div>
-            </div>
-
-            <!-- Session selection pills -->
-            <div class="session-section-wrapper" v-if="sessionOptions.length > 0" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-              <div class="session-pills-row" @wheel="handleWheelScroll" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;">
-                <button 
-                  v-for="s in sessionOptions" 
-                  :key="s.id"
-                  class="session-pill-btn"
-                  :class="{ 
-                    active: selectedSesi === s.id && s.available, 
-                    'unavailable-session': !s.available 
-                  }"
-                  :disabled="!s.available"
-                  @click="s.available ? selectedSesi = s.id : null"
-                >
-                  <div class="session-pill-inner">
-                    <span class="session-pill-name">{{ s.name }}</span>
-                    <span class="session-pill-time">{{ s.departureTime }}</span>
-                    <span v-if="!s.available" class="session-pill-status" style="font-size: 0.55rem; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 2px;">TIDAK TERSEDIA</span>
-                  </div>
-                </button>
-              </div>
+          <!-- Session selection pills -->
+          <div class="session-section-wrapper" v-if="sessionOptions.length > 0" style="background: #ffffff; border: 1px solid #edf2f7; border-radius: 12px; padding: 12px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            <div class="session-pills-row" @wheel="handleWheelScroll" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;">
+              <button 
+                v-for="s in sessionOptions" 
+                :key="s.id"
+                class="session-pill-btn"
+                :class="{ 
+                  active: selectedSesi === s.id && s.available, 
+                  'unavailable-session': !s.available 
+                }"
+                :disabled="!s.available"
+                @click="s.available ? selectedSesi = s.id : null"
+              >
+                <div class="session-pill-inner">
+                  <span class="session-pill-name">{{ s.name }}</span>
+                  <span class="session-pill-time">{{ s.departureTime }}</span>
+                  <span v-if="!s.available" class="session-pill-status" style="font-size: 0.55rem; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 2px;">TIDAK TERSEDIA</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -2153,14 +2169,10 @@ const tryAutoplay = () => {
               <div 
                 v-for="t in filteredTickets" 
                 :key="t.id" 
-                class="ticket-card-voucher"
+                class="mobile-ticket-voucher-card"
                 :id="selectedTicket?.id === t.id ? 'seatmap' : null"
                 :class="{ selected: selectedTicket?.id === t.id && isCanvasOpen }"
               >
-                <!-- Side notches -->
-                <div class="ticket-side-notch-left"></div>
-                <div class="ticket-side-notch-right"></div>
-                
                 <!-- Teleport seatmap (Teleport to body on mobile) -->
                 <Teleport :disabled="!isMobile" v-if="(selectedTicket?.id === t.id && isCanvasOpen) || isSheetClosing" to="body">
                   <div v-if="isMobile" class="mobile-seatmap-backdrop" :class="{ 'is-closing': isSheetClosing }" @click="clearSelectedTicket" @touchmove.prevent></div>
@@ -2233,31 +2245,88 @@ const tryAutoplay = () => {
                 </Teleport>
 
                 <!-- Ticket Info (Visible card) -->
-                <div class="ticket-header-row" @click="toggleTicketExpanded(t.id)">
+                <div class="ticket-header-row" @click="toggleTicketAccordion(t.id)">
                   <div class="ticket-header-left">
-                    <div class="ticket-badge-category" :style="{ backgroundColor: t.seat_color || 'var(--primary)' }">
-                      {{ t.ticket_category }}
+                    <h4 class="ticket-title-main" style="margin: 0;">{{ t.ticket_category || t.name }}</h4>
+                    <div class="ticket-route-badge-new" v-if="t.route" style="margin-top: 8px;">
+                      <span class="badge-dot-green">●</span>
+                      <span>{{ t.route.origin_name }} → {{ t.route.destination_name }}</span>
                     </div>
-                    <h4 class="ticket-title-main">{{ t.name }}</h4>
-                    <p class="ticket-route-desc" v-if="t.description">{{ t.description }}</p>
                   </div>
-                  <div class="ticket-header-right">
-                    <div class="ticket-price-badge">
+                </div>
+
+                <div class="ticket-divider-row-dotted"></div>
+
+                <div class="ticket-price-row-accordion" @click="toggleTicketAccordion(t.id)">
+                  <div class="price-info-col">
+                    <span class="price-info-label">MULAI DARI</span>
+                    <span class="price-info-val">
                       <template v-if="!selectedTripStatus">{{ formatRp(t.price) }}</template>
                       <template v-else>{{ formatRp(getEffectivePrice(t)) }}</template>
-                    </div>
-                    <div class="accordion-chevron" :class="{ rotated: expandedTicketId === t.id }">
-                      <ChevronDown :size="16" />
-                    </div>
+                    </span>
+                  </div>
+                  <div class="accordion-chevron" :class="{ rotated: expandedTicketId === t.id }">
+                    <ChevronDown :size="18" />
                   </div>
                 </div>
 
                 <!-- Expanded Dropdowns -->
                 <transition name="expand">
-                  <div v-if="expandedTicketId === t.id" class="ticket-expanded-details">
-                    <div class="accordion-section-divider"></div>
-                    <div class="trip-status-section">
-                      <span class="detail-col-label">Pilih Jenis Seat</span>
+                  <div v-if="expandedTicketId === t.id" class="ticket-expanded-details-new">
+                    
+                    <!-- Hari Konser -->
+                    <div class="acc-info-section">
+                      <span class="acc-section-label">Hari Konser</span>
+                      <div class="acc-info-row">
+                        <Calendar :size="18" class="acc-icon-red" />
+                        <span class="acc-info-value-bold">{{ formatDateLabelLong(selectedDate) }}</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Sesi Berangkat & Sesi Pulang -->
+                    <div class="acc-sessions-grid">
+                      <div class="acc-info-section">
+                        <span class="acc-section-label">Sesi Berangkat</span>
+                        <div class="acc-info-row">
+                          <Clock :size="18" class="acc-icon-red" />
+                          <span class="acc-info-value-bold">
+                            {{ sessionOptions.find(s => s.id === selectedSesi)?.time || '-' }}
+                          </span>
+                        </div>
+                      </div>
+                      <div class="acc-info-section">
+                        <span class="acc-section-label">Sesi Pulang</span>
+                        <div class="acc-info-row">
+                          <Clock :size="18" class="acc-icon-red" />
+                          <span class="acc-info-value-bold">-</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="accordion-section-divider-thin"></div>
+
+                    <!-- Deskripsi Tiket -->
+                    <div class="acc-info-section" v-if="t.description">
+                      <span class="acc-section-label">Deskripsi Tiket</span>
+                      <p class="acc-description-text">{{ t.description }}</p>
+                    </div>
+
+                    <!-- Fasilitas Shuttle -->
+                    <div class="acc-info-section" v-if="event?.facilities && event.facilities.length > 0">
+                      <span class="acc-section-label">Fasilitas Shuttle</span>
+                      <div class="acc-facilities-grid">
+                        <div v-for="fac in event.facilities" :key="fac" class="acc-facility-item">
+                          <component :is="getFacilityIcon(fac)" :size="16" class="acc-icon-red" />
+                          <span class="acc-facility-text">{{ fac }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="accordion-section-divider-thin"></div>
+
+                    <!-- Choose Trip Status (Shuttle type) if PP or multiple status options exist -->
+                    <div class="trip-status-section" v-if="tripStatusOptions.length > 0" style="margin-bottom: 12px;">
+                      <span class="detail-col-label" style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Pilih Jenis Seat</span>
                       <div class="trip-status-dropdown-wrapper">
                         <select v-model="selectedTripStatus" class="trip-status-select" :class="{ 'trip-status-select-error': tripTypeError }" @change="bookingStore.selectedTripStatus = selectedTripStatus">
                           <option :value="null" disabled>Pilih jenis seat</option>
@@ -2265,49 +2334,46 @@ const tryAutoplay = () => {
                         </select>
                       </div>
                     </div>
-                    <div class="accordion-section-divider"></div>
-                    <div class="ticket-facilities-section">
-                      <span class="detail-col-label">Fasilitas Shuttle</span>
-                      <div class="facilities-simple-list">
-                        <div v-for="fac in event?.facilities || []" :key="fac" class="facility-simple-item">
-                          <component :is="getFacilityIcon(fac)" :size="16" class="facility-icon-red" />
-                          <span class="facility-text">{{ fac }}</span>
-                        </div>
+
+                    <div class="accordion-section-divider" style="margin-bottom: 12px; height: 1px; background: #edf2f7;" v-if="tripStatusOptions.length > 0"></div>
+
+                    <!-- Expanded bottom action area -->
+                    <div class="expanded-bottom-action-row">
+                      <div class="ticket-ending-details">
+                        <span class="ending-label">{{ getTicketStatusClass(t) === 'not-started' ? 'PENJUALAN DIMULAI PADA' : 'BERAKHIR PADA' }}</span>
+                        <span class="ending-value">
+                          <template v-if="getTicketStatusClass(t) === 'not-started'">
+                            {{ formatDateLabelLong(t.ticket_start_date) }}, <span class="countdown-text">{{ t.ticket_start_time }} WIB</span>
+                          </template>
+                          <template v-else>
+                            {{ formatDateLabelLong(t.ticket_end) }}, <span class="countdown-text">{{ t.ending_time }} WIB</span>
+                          </template>
+                        </span>
+                      </div>
+                      
+                      <!-- Accordion Stepper -->
+                      <div class="stepper-selector">
+                        <button 
+                          type="button" 
+                          class="stepper-btn btn-minus" 
+                          :disabled="getTicketSelectedQty(t.id) === 0"
+                          @click.stop="handleDecreaseTicketQty(t)"
+                        >
+                          －
+                        </button>
+                        <span class="stepper-val">{{ getTicketSelectedQty(t.id) }}</span>
+                        <button 
+                          type="button" 
+                          class="stepper-btn btn-plus"
+                          :disabled="getTicketStatusClass(t) === 'not-started' || getTicketStatusClass(t) === 'ended' || !hasAvailableseats(t)"
+                          @click.stop="selectTicketCategory(t)"
+                        >
+                          ＋
+                        </button>
                       </div>
                     </div>
                   </div>
                 </transition>
-                
-                <div class="ticket-divider-row">
-                  <div class="ticket-card-divider-dashed-line"></div>
-                </div>
-                
-                <div class="ticket-bottom-section">
-                  <div class="ticket-bottom-footer-row">
-                    <div class="ticket-ending-details">
-                      <span class="ending-label">{{ getTicketStatusClass(t) === 'not-started' ? 'PENJUALAN DIMULAI PADA' : 'BERAKHIR PADA' }}</span>
-                      <span class="ending-value">
-                        <template v-if="getTicketStatusClass(t) === 'not-started'">
-                          {{ formatDateLabelLong(t.ticket_start_date) }}, <span class="countdown-text">{{ t.ticket_start_time }} WIB</span>
-                        </template>
-                        <template v-else>
-                          {{ formatDateLabelLong(t.ticket_end) }}, <span class="countdown-text">{{ t.ending_time }} WIB</span>
-                        </template>
-                      </span>
-                    </div>
-                    <div class="ticket-footer-vertical-divider"></div>
-                    <div class="ticket-action-select-btn-only">
-                      <button 
-                        class="select-ticket-btn" 
-                        :class="{ selected: selectedTicket?.id === t.id && isCanvasOpen, 'sold-out': !hasAvailableseats(t) }" 
-                        :disabled="getTicketStatusClass(t) === 'not-started' || getTicketStatusClass(t) === 'ended' || !hasAvailableseats(t)" 
-                        @click="toggleSeatmapCanvas(t)"
-                      >
-                        {{ getTicketStatusClass(t) === 'not-started' ? 'Segera Hadir' : (getTicketStatusClass(t) === 'ended' ? 'Selesai' : (!hasAvailableseats(t) ? 'Penuh' : 'Pilih Seat')) }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -3498,6 +3564,7 @@ const tryAutoplay = () => {
         </div>
       </div>
     </transition>
+    </div>
 
     <!-- YouTube audio iframe (hidden) -->
     <iframe
@@ -3529,7 +3596,6 @@ const tryAutoplay = () => {
         <line x1="17" y1="9" x2="23" y2="15"/>
       </svg>
     </button>
-    </div>
   </div>
 </template>
 
@@ -8289,13 +8355,13 @@ html.lock-scroll, body.lock-scroll {
 
 .date-slider-val {
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .date-slider-divider {
   width: 1px;
   height: 38px;
-  background: #e2e8f0;
+  background: #cbd5e1;
   margin: 0 16px;
   flex-shrink: 0;
 }
@@ -8498,14 +8564,14 @@ html.lock-scroll, body.lock-scroll {
 
 .session-pill-name {
   font-size: 0.85rem;
-  font-weight: 800;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
 }
 
 .session-pill-time {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 400;
   opacity: 0.85;
   margin-top: 1px;
 }
@@ -8911,12 +8977,11 @@ html.lock-scroll, body.lock-scroll {
 .mobile-redesign-layout {
   min-height: 100vh;
   background-color: #f1f5f9; /* slightly more grey background */
-  padding-bottom: 96px; /* offset for bottom sticky footer */
+  padding-bottom: 84px; /* reduced offset for shrunken bottom sticky footer */
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
 }
 
 .mobile-header-banner {
@@ -9313,18 +9378,20 @@ html.lock-scroll, body.lock-scroll {
 .mobile-bottom-footer-redesign {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px; /* centers and keeps it neat on all mobile and small tablet viewports */
   background: #ffffff;
   border-top: 1px solid #edf2f7;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  padding: 10px 16px 12px; /* reduced padding from 16px 20px */
   z-index: 999;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-  gap: 12px;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
+  gap: 8px; /* reduced gap from 12px */
 }
 
 .footer-top-row {
@@ -9340,7 +9407,7 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .total-harga-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem; /* slightly smaller font label */
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
@@ -9348,7 +9415,7 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .total-harga-val {
-  font-size: 1.35rem;
+  font-size: 1.15rem; /* reduced from 1.35rem */
   font-weight: 900;
   color: #0f172a; /* Dark text as shown in mockup */
   letter-spacing: -0.2px;
@@ -9360,7 +9427,7 @@ html.lock-scroll, body.lock-scroll {
   gap: 4px;
   color: var(--primary, #c94c4c); /* Red detail text */
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.82rem; /* reduced from 0.9rem */
   cursor: pointer;
 }
 
@@ -9371,14 +9438,14 @@ html.lock-scroll, body.lock-scroll {
 .btn-beli-tiket-sekarang {
   background: var(--primary, #c94c4c); /* Red button */
   color: #ffffff;
-  padding: 14px 0;
-  border-radius: 12px;
+  padding: 10px 0; /* reduced padding from 14px 0 */
+  border-radius: 10px; /* reduced border radius from 12px */
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.92rem; /* reduced from 1rem */
   border: none;
   cursor: pointer;
   text-align: center;
-  box-shadow: 0 4px 14px rgba(201, 76, 76, 0.25);
+  box-shadow: 0 4px 12px rgba(201, 76, 76, 0.2);
   transition: background-color 0.2s, transform 0.2s;
   width: 100%;
 }
@@ -9489,6 +9556,305 @@ html.lock-scroll, body.lock-scroll {
   flex-shrink: 0;
   margin-left: 4px;
   display: inline-block;
+}
+
+.mobile-ticket-voucher-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+}
+
+.mobile-ticket-voucher-card.selected {
+  border-color: var(--primary, #c94c4c);
+  box-shadow: 0 4px 16px rgba(201, 76, 76, 0.06);
+}
+
+.ticket-title-main {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+  line-height: 1.35;
+}
+
+.ticket-route-badge-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4; /* soft light green */
+  color: #16a34a; /* primary green text */
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.badge-dot-green {
+  font-size: 0.65rem;
+  color: #16a34a;
+}
+
+.ticket-divider-row-dotted {
+  border-top: 1px dotted #e2e8f0;
+  margin: 12px 0;
+  width: 100%;
+}
+
+.ticket-price-row-accordion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.price-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-info-label {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+.price-info-val {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.accordion-chevron {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: transform 0.25s ease, background-color 0.2s;
+}
+
+.accordion-chevron.rotated {
+  transform: rotate(180deg);
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.ticket-expanded-details-new {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.expanded-bottom-action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid #edf2f7;
+}
+
+.ticket-ending-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ending-label {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+.ending-value {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+/* Stepper Selector Styling */
+.stepper-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.stepper-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.stepper-btn:disabled {
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.stepper-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  min-width: 14px;
+  text-align: center;
+}
+
+.mobile-sticky-date-slider {
+  position: sticky;
+  top: 48px;
+  z-index: 49;
+  background: #ffffff;
+  padding: 8px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  margin: 0;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.02);
+}
+
+.mobile-sticky-date-slider .date-slider-container {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+.acc-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.acc-section-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #64748b; /* slate grey */
+  letter-spacing: 0.2px;
+}
+
+.acc-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.acc-icon-red {
+  color: var(--primary, #c94c4c);
+  flex-shrink: 0;
+}
+
+.acc-info-value-bold {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.acc-sessions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.accordion-section-divider-thin {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 0 14px;
+}
+
+.acc-description-text {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.acc-facilities-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.acc-facility-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acc-facility-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.mobile-sticky-date-slider .date-slider-calendar-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  width: auto !important;
+  height: auto !important;
+}
+
+.mobile-tab-tickets-content .session-pills-row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.mobile-tab-tickets-content .session-pills-row::-webkit-scrollbar {
+  display: none !important;
+}
+
+.mobile-tab-tickets-content .session-pill-btn {
+  flex: 0 0 160px !important;
+  width: 160px !important;
+  box-sizing: border-box !important;
 }
 
 /* ==========================================================================

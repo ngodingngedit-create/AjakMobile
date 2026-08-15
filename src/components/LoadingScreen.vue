@@ -68,22 +68,23 @@ watch(() => props.show, (newVal) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 4px;
 }
 
 .lottie-container {
-  width: 150px;
-  height: 150px;
+  width: 110px;
+  height: 110px;
 }
 
 .loading-text {
   font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--primary, #c94c4c);
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   animation: pulse 1.5s infinite ease-in-out;
+  margin-top: -12px;
 }
 
 @keyframes pulse {
