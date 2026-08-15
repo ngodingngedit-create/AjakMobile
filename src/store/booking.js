@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 
 export const bookingStore = reactive({
+  isLoading: false,
   selectedEvent: null,
   selectedPickup: null,
   selectedReturn: null,

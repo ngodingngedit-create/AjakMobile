@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, CheckCircle } from 'lucide-vue-next';
+import { bookingStore } from '../store/booking';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +23,9 @@ onMounted(async () => {
     console.error('Error fetching shuttle bus detail:', error);
   } finally {
     isLoading.value = false;
+    setTimeout(() => {
+      bookingStore.isLoading = false;
+    }, 800);
   }
 });
 </script>

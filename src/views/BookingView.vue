@@ -1025,7 +1025,63 @@ watch([isCanvasOpen, isSheetClosing], ([isOpen, isClosing]) => {
   }
 });
 
+const showTicketDrawer = ref(false);
+const openTicketDrawer = () => {
+  showTicketDrawer.value = true;
+};
+
+const selectTicketAndOpenSeatmap = (t) => {
+  selectedTicket.value = t;
+  showTicketDrawer.value = false;
+  isCanvasOpen.value = true;
+};
+
+const activeRouteInfo = computed(() => {
+  if (selectedTicket.value?.route) {
+    return selectedTicket.value.route;
+  }
+  const firstTicket = filteredTickets.value[0];
+  if (firstTicket?.route) {
+    return firstTicket.route;
+  }
+  return {
+    origin_name: 'Kemayoran',
+    origin_address: 'Stasiun DAMRI Kemayoran Jln Angkasa no 17B',
+    destination_name: event.value?.venue_name || 'Terminal Bungurasih',
+    destination_address: event.value?.venue_address || 'Kasian, Jl. Bungurasih Timur No.31, Kasian...',
+    distance_km: 10
+  };
+});
+
+const routeDurationText = computed(() => {
+  if (!event.value?.start_time || !event.value?.end_time) return '10j';
+  const parseTime = (tStr) => {
+    const parts = tStr.split(':');
+    return parseInt(parts[0], 10) + (parseInt(parts[1], 10) || 0) / 60;
+  };
+  const start = parseTime(event.value.start_time);
+  const end = parseTime(event.value.end_time);
+  let diff = end - start;
+  if (diff < 0) diff += 24;
+  return `${Math.round(diff)}j`;
+});
+
+const routeDateText = computed(() => {
+  if (!selectedDate.value) return '17 Agt';
+  const parts = selectedDate.value.split('-');
+  if (parts.length < 3) return '17 Agt';
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+  const mIdx = parseInt(parts[1], 10) - 1;
+  return `${parseInt(parts[2], 10)} ${monthNames[mIdx]}`;
+});
+
+const formatIDR = (num) => {
+  if (!num) return 'IDR 0';
+  return 'IDR ' + num.toLocaleString('id-ID');
+};
+
 onMounted(async () => {
+  bookingStore.isLoading = true;
   const slug = route.params.slug;
 
   let item = null;
@@ -1042,6 +1098,7 @@ onMounted(async () => {
   }
 
   if (!item) {
+    bookingStore.isLoading = false;
     router.replace('/');
     return;
   }
@@ -1183,6 +1240,10 @@ onMounted(async () => {
   window.addEventListener('resize', updateMobileStatus);
   document.addEventListener('click', handleClickOutside);
   handleScrollTabs();
+
+  setTimeout(() => {
+    bookingStore.isLoading = false;
+  }, 800);
 });
 
 onUnmounted(() => {
@@ -1731,6 +1792,24 @@ const goBack = () => {
   router.back();
 };
 
+const handleBeliTiketClick = () => {
+  if (activeTab.value !== 'tiket') {
+    activeTab.value = 'tiket';
+  } else {
+    if (!selectedTicket.value) {
+      if (filteredTickets.value.length > 0) {
+        toggleSeatmapCanvas(filteredTickets.value[0]);
+      } else {
+        alert("Silakan pilih tiket terlebih dahulu.");
+      }
+    } else if (selectedseats.value.length === 0) {
+      toggleSeatmapCanvas(selectedTicket.value);
+    } else {
+      goToBuyerDetails();
+    }
+  }
+};
+
 const openChat = () => {
   alert('Fitur Chat dengan Penyelenggara segera hadir!');
 };
@@ -1872,7 +1951,403 @@ const tryAutoplay = () => {
 <template>
   <div class="event-detail-page" v-if="event">
     
-    <!-- Desktop Header Banner Area -->
+    <!-- MOBILE REDESIGN VIEW (Visible on mobile only when currentStep === 1) -->
+    <div v-if="isMobile && currentStep === 1" class="mobile-redesign-layout">
+      <!-- Header Banner Image & Back Button overlay -->
+      <div class="mobile-header-banner">
+        <button class="mobile-back-circle-btn" @click="goBack" aria-label="Back">
+          <ChevronLeft :size="24" />
+        </button>
+        <img :src="event.image" :alt="event.name" class="mobile-banner-img" />
+      </div>
+
+      <!-- Thumbnails Gallery -->
+      <div class="mobile-gallery-row">
+        <img :src="event.image" class="gallery-thumb" />
+        <img src="/bus_parkir2.png" class="gallery-thumb" />
+        <div class="gallery-thumb last-thumb">
+          <img src="/bus_parkir3.png" />
+          <div class="thumb-overlay">+5 lainnya</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="mobile-tabs-container">
+        <button 
+          class="mobile-tab-btn" 
+          :class="{ active: activeTab === 'deskripsi' }" 
+          @click="activeTab = 'deskripsi'"
+        >
+          Deskripsi
+        </button>
+        <button 
+          class="mobile-tab-btn" 
+          :class="{ active: activeTab === 'tiket' }" 
+          @click="activeTab = 'tiket'"
+        >
+          Tiket
+        </button>
+        <button 
+          class="mobile-tab-btn" 
+          :class="{ active: activeTab === 'terms' }" 
+          @click="activeTab = 'terms'"
+        >
+          Syarat &amp; Ketentuan
+        </button>
+      </div>
+
+      <!-- Mobile Tab Content -->
+      <div class="mobile-tab-body">
+        <!-- Deskripsi Tab Content (Mockup Layout) -->
+        <div v-if="activeTab === 'deskripsi'" class="mobile-tab-detail-content" style="padding-bottom: 24px;">
+          <!-- Title & Subtitle Section -->
+          <div class="mobile-title-section">
+            <div class="title-header-wrapper">
+              <h2 class="mobile-bus-name">{{ event.name }}</h2>
+              <svg class="verified-icon-only" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <p class="mobile-bus-type">{{ event.tag || 'Business' }}</p>
+          </div>
+
+          <!-- New Event Info Card -->
+          <div class="mobile-event-info-card">
+            <div class="info-row">
+              <Calendar :size="20" class="info-icon" />
+              <span class="info-value">{{ formatEventDates(event) }}</span>
+            </div>
+            <div class="info-row">
+              <Clock :size="20" class="info-icon" />
+              <span class="info-value">{{ event.start_time }} - {{ event.end_time }} {{ event.zone_time || 'WIB' }}</span>
+            </div>
+            <div class="info-row">
+              <MapPin :size="20" class="info-icon" />
+              <div class="info-value-col">
+                <span class="venue-title">{{ event.venue_name || event.location_name || 'Lokasi Keberangkatan' }}</span>
+                <span class="venue-addr" v-if="event.venue_address || event.location_address">
+                  {{ event.venue_address || event.location_address }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="info-card-divider"></div>
+            
+            <div class="organizer-row">
+              <img 
+                :src="event.has_creator?.image_url || '/AJAKLogo/LOGO.png'" 
+                class="organizer-logo" 
+              />
+              <div class="organizer-details">
+                <span class="organizer-label">Diselenggarakan Oleh</span>
+                <div class="organizer-name-wrapper">
+                  <span class="organizer-name">{{ event.has_creator?.name || 'AJAK!' }}</span>
+                  <svg class="organizer-verified-badge" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description Section (original event description) -->
+          <div class="mobile-description-section" v-if="event.description">
+            <h3 class="section-title">Deskripsi Acara</h3>
+            <div v-html="event.description" class="rich-html-content"></div>
+          </div>
+
+          <!-- Red Alert Banner (Below Description Card, themed to website's red) -->
+          <div class="red-alert-banner">
+            <Sofa :size="18" class="red-alert-icon" />
+            <span>Kamu bisa pilih kursi di halaman selanjutnya.</span>
+          </div>
+        </div>
+
+        <!-- Tiket Tab Content (Original booking mechanics inline) -->
+        <div v-else-if="activeTab === 'tiket'" class="mobile-tab-tickets-content" style="padding: 16px 16px 32px;">
+          <!-- Hari & Sesi Section -->
+          <div class="outer-section-group filters-group mobile-filters-card" style="background: #ffffff; border-radius: 16px; padding: 18px 16px; border: 1px solid #edf2f7; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            <h3 class="outer-section-title" style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 16px 0; letter-spacing: -0.2px;">Hari &amp; Sesi</h3>
+            
+            <!-- Date slider -->
+            <div class="date-slider-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+              <div class="date-slider-scroll" @wheel="handleWheelScroll" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; flex-grow: 1;">
+                <button 
+                  v-for="d in dateOptions" 
+                  :key="d.id"
+                  class="date-slider-item"
+                  :class="{ 
+                    active: selectedDate === d.id,
+                    disabled: d.enabled === false
+                  }"
+                  :disabled="d.enabled === false"
+                  @click="d.enabled !== false ? selectedDate = d.id : null"
+                >
+                  <span class="date-slider-day">{{ d.shortDay }}</span>
+                  <span class="date-slider-val">{{ d.shortDate }}</span>
+                </button>
+              </div>
+              <div class="date-slider-divider" style="width: 1px; height: 32px; background: #e2e8f0; margin: 0 8px;"></div>
+              <div class="calendar-btn-wrapper" ref="calendarBtnWrapperRef" style="position: relative;">
+                <button class="date-slider-calendar-btn" aria-label="Pilih Tanggal" @click="toggleCalendarPopup" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+                  <Calendar :size="18" />
+                </button>
+                <transition name="fade-in-scale">
+                  <div v-if="showCalendarPopup" class="mini-calendar-popup" style="position: absolute; right: 0; bottom: 44px; z-index: 100; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 250px;">
+                    <div class="mini-cal-header" style="text-align: center; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
+                      <span class="mini-cal-month">{{ calendarMonthYear }}</span>
+                    </div>
+                    <div class="mini-cal-weekdays" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.65rem; color: #64748b; font-weight: 700; margin-bottom: 6px;">
+                      <span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span><span>M</span>
+                    </div>
+                    <div class="mini-cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+                      <button 
+                        v-for="day in juneDays" 
+                        :key="day.num"
+                        class="mini-cal-day-btn"
+                        :class="{ 
+                          'is-concert': day.isConcert, 
+                          'active': selectedDate === day.concertId,
+                          'disabled': !day.isConcert 
+                        }"
+                        :disabled="!day.isConcert"
+                        @click="selectDateFromCalendar(day.concertId)"
+                        style="height: 28px; width: 28px; border-radius: 50%; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; border: none; background: transparent;"
+                      >
+                        {{ day.num }}
+                      </button>
+                    </div>
+                  </div>
+                </transition>
+              </div>
+            </div>
+
+            <!-- Session selection pills -->
+            <div class="session-section-wrapper" v-if="sessionOptions.length > 0" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
+              <div class="session-pills-row" @wheel="handleWheelScroll" style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;">
+                <button 
+                  v-for="s in sessionOptions" 
+                  :key="s.id"
+                  class="session-pill-btn"
+                  :class="{ 
+                    active: selectedSesi === s.id && s.available, 
+                    'unavailable-session': !s.available 
+                  }"
+                  :disabled="!s.available"
+                  @click="s.available ? selectedSesi = s.id : null"
+                >
+                  <div class="session-pill-inner">
+                    <span class="session-pill-name">{{ s.name }}</span>
+                    <span class="session-pill-time">{{ s.departureTime }}</span>
+                    <span v-if="!s.available" class="session-pill-status" style="font-size: 0.55rem; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 2px;">TIDAK TERSEDIA</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seating and categories list (vouchers) -->
+          <div class="outer-section-group" style="background: #ffffff; border-radius: 16px; padding: 18px 16px; border: 1px solid #edf2f7; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+            <h3 class="outer-section-title" style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 16px 0; letter-spacing: -0.2px;">Pilih Kursi</h3>
+            <div class="tickets-list-wrapper" style="display: flex; flex-direction: column; gap: 16px;">
+              <div 
+                v-for="t in filteredTickets" 
+                :key="t.id" 
+                class="ticket-card-voucher"
+                :id="selectedTicket?.id === t.id ? 'seatmap' : null"
+                :class="{ selected: selectedTicket?.id === t.id && isCanvasOpen }"
+              >
+                <!-- Side notches -->
+                <div class="ticket-side-notch-left"></div>
+                <div class="ticket-side-notch-right"></div>
+                
+                <!-- Teleport seatmap (Teleport to body on mobile) -->
+                <Teleport :disabled="!isMobile" v-if="(selectedTicket?.id === t.id && isCanvasOpen) || isSheetClosing" to="body">
+                  <div v-if="isMobile" class="mobile-seatmap-backdrop" :class="{ 'is-closing': isSheetClosing }" @click="clearSelectedTicket" @touchmove.prevent></div>
+                  <div class="selected-seatmap-canvas-container" :class="{ 'is-closing': isSheetClosing }" :style="{ transform: `translateY(${sheetDragDeltaY}px)`, transition: isSheetDragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)' }" @click.stop>
+                    <!-- Drag handle -->
+                    <div class="sheet-drag-handle-area" @touchstart.stop="onSheetDragStart" @touchmove.stop="onSheetDragMove" @touchend.stop="onSheetDragEnd" @mousedown.stop="onSheetDragStart" @mousemove.stop="onSheetDragMove" @mouseup.stop="onSheetDragEnd">
+                      <div class="sheet-drag-handle-pill"></div>
+                    </div>
+                    
+                    <!-- Inner card body (seating selector canvas) -->
+                    <div class="sheet-inner-card">
+                      <div class="mobile-seatmap-header" @touchstart.stop @mousedown.stop>
+                        <button type="button" class="btn-close-seatmap-mobile" @click.stop="clearSelectedTicket">✕</button>
+                        <h3 class="mobile-seatmap-header-title">Pilih seat</h3>
+                      </div>
+                      <div class="seatmap-canvas-header">
+                        <div class="seatmap-canvas-title-group">
+                          <span class="seatmap-canvas-badge" :style="{ backgroundColor: t.seat_color || 'var(--primary)' }">
+                            {{ selectedTripStatus?.name || t.trip_status?.name || 'Pergi' }}
+                          </span>
+                          <h3 class="seatmap-canvas-ticket-name">{{ t.name }}</h3>
+                        </div>
+                        <button type="button" class="btn-back-to-tickets" @click="clearSelectedTicket">Kembali</button>
+                      </div>
+                      
+                      <!-- Seating canvas & Konva Stage -->
+                      <div class="seatmap-canvas-body">
+                        <div class="bus-cabin-canvas-viewport" :class="{ 'is-fullscreen-mode': isFullscreen }" @wheel.prevent="onWheel">
+                          <div class="mobile-legends-overlay" @touchstart.stop>
+                            <div class="legend-item"><span class="legend-box selected"></span><span>Dipilih</span></div>
+                            <div class="legend-item"><span class="legend-box available"></span><span>Tersedia</span></div>
+                            <div class="legend-item"><span class="legend-box occupied"></span><span>Tidak Tersedia</span></div>
+                          </div>
+                          <div class="mobile-zoom-controls-overlay" @touchstart.stop>
+                            <button type="button" class="m-zoom-btn" @click="isFullscreen = !isFullscreen">🔍</button>
+                            <button type="button" class="m-zoom-btn" @click="zoomIn">➕</button>
+                            <button type="button" class="m-zoom-btn" @click="zoomOut">➖</button>
+                          </div>
+                          
+                          <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f8fafc; border-radius: 12px; position: relative; z-index: 1;">
+                            <v-stage :config="{ width: 800, height: 600, draggable: isStageDraggable, scaleX: zoom, scaleY: zoom }" @wheel="onWheel" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
+                              <v-layer>
+                                <v-group :config="{ x: 400, y: 100 }">
+                                  <template v-for="shape in parsedseatmap" :key="shape.id">
+                                    <v-group v-if="shape.type === 'box'" :config="shape.groupConfig">
+                                      <v-rect :config="shape.rectConfig" />
+                                      <v-text :config="shape.textConfig" />
+                                    </v-group>
+                                    <v-group v-else-if="shape.type === 'seat'" :config="shape.groupConfig" @click="shape.available ? toggleseatSelection(shape.id) : null" @tap="shape.available ? toggleseatSelection(shape.id) : null">
+                                      <v-rect :config="shape.rectConfig" />
+                                      <v-text :config="shape.textConfig" />
+                                    </v-group>
+                                  </template>
+                                </v-group>
+                              </v-layer>
+                            </v-stage>
+                          </div>
+                        </div>
+                        
+                        <div v-if="isMobile && !isPP" class="canvas-bottom-action-bar">
+                          <div class="canvas-bottom-left">
+                            <span class="canvas-bottom-label">Total {{ selectedseats.length }} Seat</span>
+                            <span class="canvas-bottom-total-price">{{ formatRp(getEffectivePrice(t) * (selectedseats.length || 1)) }}</span>
+                          </div>
+                          <button type="button" class="btn-canvas-pembayaran" :disabled="selectedseats.length === 0" @click="goToBuyerDetails()">Lanjut Pembayaran</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Teleport>
+
+                <!-- Ticket Info (Visible card) -->
+                <div class="ticket-header-row" @click="toggleTicketExpanded(t.id)">
+                  <div class="ticket-header-left">
+                    <div class="ticket-badge-category" :style="{ backgroundColor: t.seat_color || 'var(--primary)' }">
+                      {{ t.ticket_category }}
+                    </div>
+                    <h4 class="ticket-title-main">{{ t.name }}</h4>
+                    <p class="ticket-route-desc" v-if="t.description">{{ t.description }}</p>
+                  </div>
+                  <div class="ticket-header-right">
+                    <div class="ticket-price-badge">
+                      <template v-if="!selectedTripStatus">{{ formatRp(t.price) }}</template>
+                      <template v-else>{{ formatRp(getEffectivePrice(t)) }}</template>
+                    </div>
+                    <div class="accordion-chevron" :class="{ rotated: expandedTicketId === t.id }">
+                      <ChevronDown :size="16" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Expanded Dropdowns -->
+                <transition name="expand">
+                  <div v-if="expandedTicketId === t.id" class="ticket-expanded-details">
+                    <div class="accordion-section-divider"></div>
+                    <div class="trip-status-section">
+                      <span class="detail-col-label">Pilih Jenis Seat</span>
+                      <div class="trip-status-dropdown-wrapper">
+                        <select v-model="selectedTripStatus" class="trip-status-select" :class="{ 'trip-status-select-error': tripTypeError }" @change="bookingStore.selectedTripStatus = selectedTripStatus">
+                          <option :value="null" disabled>Pilih jenis seat</option>
+                          <option v-for="ts in tripStatusOptions" :key="ts.id" :value="ts">{{ ts.name }}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="accordion-section-divider"></div>
+                    <div class="ticket-facilities-section">
+                      <span class="detail-col-label">Fasilitas Shuttle</span>
+                      <div class="facilities-simple-list">
+                        <div v-for="fac in event?.facilities || []" :key="fac" class="facility-simple-item">
+                          <component :is="getFacilityIcon(fac)" :size="16" class="facility-icon-red" />
+                          <span class="facility-text">{{ fac }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+                
+                <div class="ticket-divider-row">
+                  <div class="ticket-card-divider-dashed-line"></div>
+                </div>
+                
+                <div class="ticket-bottom-section">
+                  <div class="ticket-bottom-footer-row">
+                    <div class="ticket-ending-details">
+                      <span class="ending-label">{{ getTicketStatusClass(t) === 'not-started' ? 'PENJUALAN DIMULAI PADA' : 'BERAKHIR PADA' }}</span>
+                      <span class="ending-value">
+                        <template v-if="getTicketStatusClass(t) === 'not-started'">
+                          {{ formatDateLabelLong(t.ticket_start_date) }}, <span class="countdown-text">{{ t.ticket_start_time }} WIB</span>
+                        </template>
+                        <template v-else>
+                          {{ formatDateLabelLong(t.ticket_end) }}, <span class="countdown-text">{{ t.ending_time }} WIB</span>
+                        </template>
+                      </span>
+                    </div>
+                    <div class="ticket-footer-vertical-divider"></div>
+                    <div class="ticket-action-select-btn-only">
+                      <button 
+                        class="select-ticket-btn" 
+                        :class="{ selected: selectedTicket?.id === t.id && isCanvasOpen, 'sold-out': !hasAvailableseats(t) }" 
+                        :disabled="getTicketStatusClass(t) === 'not-started' || getTicketStatusClass(t) === 'ended' || !hasAvailableseats(t)" 
+                        @click="toggleSeatmapCanvas(t)"
+                      >
+                        {{ getTicketStatusClass(t) === 'not-started' ? 'Segera Hadir' : (getTicketStatusClass(t) === 'ended' ? 'Selesai' : (!hasAvailableseats(t) ? 'Penuh' : 'Pilih Seat')) }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Syarat & Ketentuan Tab Content -->
+        <div v-else-if="activeTab === 'terms'" class="mobile-tab-terms-content">
+          <div class="tab-card-content description-card">
+            <h2 class="section-card-title">Syarat &amp; Ketentuan</h2>
+            <div v-html="event.term_condition || '<p>Tidak ada syarat & ketentuan</p>'" class="rich-html-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Bottom Footer (Global on mobile view) -->
+      <div class="mobile-bottom-footer-redesign">
+        <div class="footer-top-row">
+          <div class="footer-price-info">
+            <span class="total-harga-label">TOTAL HARGA</span>
+            <span class="total-harga-val">{{ formatRp(totalSelectedTicketsPrice || event.priceNum || 262672) }}</span>
+          </div>
+          <div class="footer-detail-toggle" v-if="selectedseats.length > 0" @click="toggleSelectedTicketsSummary">
+            <span class="detail-toggle-text">({{ selectedseats.length }}) Detail</span>
+            <ChevronUp :size="16" class="detail-toggle-icon" />
+          </div>
+          <div class="footer-detail-toggle" v-else>
+            <span class="detail-toggle-text">(0) Detail</span>
+            <ChevronUp :size="16" class="detail-toggle-icon" />
+          </div>
+        </div>
+        <button class="btn-beli-tiket-sekarang" @click="handleBeliTiketClick">
+          Beli Tiket Sekarang
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ORIGINAL LAYOUT -->
+    <div v-else class="original-layout-wrapper">
+      <!-- Desktop Header Banner Area -->
     <div class="event-header-banner desktop-header-view">
       <!-- Blurred background image overlay -->
       <div class="banner-blur-bg" :style="{ backgroundImage: `url(${event.image})` }"></div>
@@ -3054,7 +3529,7 @@ const tryAutoplay = () => {
         <line x1="17" y1="9" x2="23" y2="15"/>
       </svg>
     </button>
-    
+    </div>
   </div>
 </template>
 
@@ -8428,5 +8903,759 @@ html.lock-scroll, body.lock-scroll {
     width: 38px;
     height: 38px;
   }
+}
+
+/* ==========================================================================
+   MOBILE EVENT DETAIL REDESIGN & DRAWER STYLING (Aesthetic enhancements)
+   ========================================================================== */
+.mobile-redesign-layout {
+  min-height: 100vh;
+  background-color: #f1f5f9; /* slightly more grey background */
+  padding-bottom: 96px; /* offset for bottom sticky footer */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.mobile-header-banner {
+  position: relative;
+  width: 100%;
+  height: 56vw; /* Exact 16:9 ratio based on width */
+  max-height: 240px;
+  background: #e2e8f0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mobile-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-back-circle-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+.mobile-back-circle-btn:active {
+  background-color: #f1f5f9;
+  transform: scale(0.92);
+}
+
+.mobile-gallery-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 16px 0; /* tighter gap from top header image */
+  background: #ffffff;
+  overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar IE 10+ */
+  flex-shrink: 0;
+  border-bottom: 1px solid #edf2f7; /* thin divider border */
+}
+.mobile-gallery-row::-webkit-scrollbar {
+  display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.gallery-thumb {
+  flex: 0 0 130px; /* Fixed width for horizontal scroll */
+  height: 80px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #e2e8f0;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.last-thumb {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  height: 80px;
+  flex: 0 0 130px; /* Fixed width for horizontal scroll */
+}
+.last-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 10px;
+}
+
+.mobile-tabs-container {
+  display: flex;
+  justify-content: flex-start;
+  gap: 24px;
+  background: #ffffff;
+  margin-top: 0; /* no top margin so it touches gallery row background */
+  border-bottom: 1px solid #edf2f7;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-shrink: 0;
+  padding: 8px 20px 4px; /* bottom padding and top padding for tabs layout alignment */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.mobile-tab-btn {
+  flex: initial;
+  width: auto;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-tab-btn.active {
+  color: var(--primary, #c94c4c); /* changed to website red */
+  border-bottom: none;
+  font-weight: 700;
+}
+.mobile-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 32px; /* Short active indicator line */
+  height: 3.5px;
+  background-color: var(--primary, #c94c4c);
+  border-radius: 2px;
+}
+
+.mobile-tab-body {
+  flex-grow: 1;
+}
+
+.mobile-tab-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* reduced from 16px to make cards tighter */
+}
+
+.title-header-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* tight gap next to title name */
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+
+.mobile-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* stack title and type vertically to prevent wrapping */
+  padding: 20px 16px 4px;
+}
+
+.mobile-bus-name {
+  font-size: 1.3rem; /* slightly smaller to fit nicely in one line */
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-bus-type {
+  font-size: 0.8rem; /* reduced from 0.92rem */
+  color: #64748b;
+  font-weight: 500; /* made lighter */
+  margin: 0;
+}
+
+.verified-icon-only {
+  width: 20px;
+  height: 20px;
+  color: #2563eb; /* Blue checkmark badge icon */
+  flex-shrink: 0;
+  display: block;
+}
+
+.mobile-facilities-card {
+  background: #ffffff;
+  border-radius: 16px;
+  margin: 0 16px;
+  border: 1px solid #edf2f7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.facilities-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 20px 16px;
+}
+
+.facility-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: #334155;
+  font-weight: 600;
+}
+.facility-item.full-width {
+  grid-column: span 2;
+}
+
+.facility-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.red-alert-banner {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--primary, #c94c4c);
+  font-weight: 700;
+  border-radius: 12px;
+  margin: -4px 16px 16px; /* pulled up closer to description card, tighter spacing */
+}
+
+.red-alert-icon {
+  color: var(--primary, #c94c4c);
+  flex-shrink: 0;
+}
+
+.mobile-route-section {
+  background: #ffffff;
+  border-radius: 16px;
+  margin: 0 16px;
+  padding: 20px 16px;
+  border: 1px solid #edf2f7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.mobile-route-section .section-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 20px 0;
+  letter-spacing: -0.2px;
+}
+
+.route-timeline {
+  position: relative;
+  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 69px; /* Center-aligned with timeline node dots */
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.duration-badge {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+  transform: rotate(-90deg);
+  margin-left: -1px;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.timeline-node {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  z-index: 2;
+  gap: 14px;
+}
+
+.node-time {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: -0.2px;
+}
+
+.node-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px currentColor;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.blue-dot {
+  color: var(--primary, #c94c4c);
+  background: var(--primary, #c94c4c);
+}
+.gray-dot {
+  color: #94a3b8;
+  background: #94a3b8;
+}
+
+.node-info {
+  flex-grow: 1;
+}
+
+.node-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.node-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.node-date {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.node-address {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.see-more-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--primary, #c94c4c);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.see-more-link:active {
+  opacity: 0.7;
+}
+
+.mobile-description-section {
+  background: #ffffff;
+  border-radius: 16px;
+  margin: 0 16px; /* removed bottom margin, let parent gap handle it */
+  padding: 16px; /* reduced padding to make spacing tighter */
+  border: 1px solid #edf2f7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.mobile-description-section .section-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+}
+
+.mobile-bottom-footer-redesign {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #edf2f7;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  z-index: 999;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  gap: 12px;
+}
+
+.footer-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-price-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.total-harga-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.total-harga-val {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #0f172a; /* Dark text as shown in mockup */
+  letter-spacing: -0.2px;
+}
+
+.footer-detail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary, #c94c4c); /* Red detail text */
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.detail-toggle-icon {
+  margin-top: 1px;
+}
+
+.btn-beli-tiket-sekarang {
+  background: var(--primary, #c94c4c); /* Red button */
+  color: #ffffff;
+  padding: 14px 0;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(201, 76, 76, 0.25);
+  transition: background-color 0.2s, transform 0.2s;
+  width: 100%;
+}
+.btn-beli-tiket-sekarang:active {
+  background: #b03535;
+  transform: scale(0.98);
+}
+
+/* Event Info Card (Date, Time, Venue, Organizer) */
+.mobile-event-info-card {
+  background: #ffffff;
+  border-radius: 16px;
+  margin: 0 16px;
+  padding: 16px; /* reduced from 20px 16px to be tighter */
+  border: 1px solid #edf2f7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* reduced from 16px to make items tighter */
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: #334155;
+  font-size: 0.95rem;
+  font-weight: 500; /* changed from 600 to remove bold styling */
+}
+
+.info-icon {
+  color: var(--primary, #c94c4c); /* red icons as requested */
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.info-value {
+  line-height: 1.4;
+}
+
+.info-value-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.venue-title {
+  font-weight: 500; /* changed from 700 to match sibling text and remove bold styling */
+  color: #334155; /* soft dark grey matching other info row text */
+}
+
+.venue-addr {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.info-card-divider {
+  height: 1px;
+  background: #edf2f7;
+  margin: 4px 0;
+}
+
+.organizer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.organizer-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.organizer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.organizer-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.organizer-name-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.organizer-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.organizer-verified-badge {
+  width: 16px;
+  height: 16px;
+  color: #2563eb; /* Blue checkmark badge */
+  flex-shrink: 0;
+  margin-left: 4px;
+  display: inline-block;
+}
+
+/* ==========================================================================
+   SLIDE-UP TICKET SELECTOR DRAWER STYLING
+   ========================================================================== */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+}
+
+.ticket-selection-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  max-height: 82vh;
+  overflow-y: auto;
+  z-index: 100000;
+  padding: 24px 20px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.15);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 14px;
+}
+
+.drawer-header h3 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.btn-close-drawer {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+.btn-close-drawer:active {
+  background: #e2e8f0;
+}
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawer-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.ticket-drawer-card {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ticket-drawer-card:active {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: scale(0.98);
+}
+
+.ticket-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ticket-badge {
+  align-self: flex-start;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.ticket-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.ticket-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 10px;
+}
+
+.ticket-price {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #e11d48;
+}
+
+.btn-select-ticket {
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.15);
+}
+
+/* Animations transitions */
+.drawer-fade-enter-active,
+.drawer-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.drawer-fade-enter-from,
+.drawer-fade-leave-to {
+  opacity: 0;
+}
+
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: transform 0.4s cubic-bezier(0.32, 0.94, 0.6, 1);
+}
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  transform: translateY(100%);
+}
+
+.mobile-tab-terms-content {
+  padding: 16px;
 }
 </style>

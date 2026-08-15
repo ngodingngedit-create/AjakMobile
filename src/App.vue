@@ -1,21 +1,56 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import Splash from './components/Splash.vue';
 import Navbar from './components/Navbar.vue';
 import Footer from './components/Footer.vue';
 import MobileNav from './components/MobileNav.vue';
+import LoadingScreen from './components/LoadingScreen.vue';
+import { bookingStore } from './store/booking';
 
 const appReady = ref(true); // DEBUG: bypass splash
+const router = useRouter();
+
+const isMobile = ref(window.innerWidth <= 768);
+const updateMobileStatus = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
+
+// Global route transitions loader on mobile view
+router.beforeEach((to, from, next) => {
+  if (window.innerWidth <= 768) {
+    bookingStore.isLoading = true;
+  }
+  next();
+});
+
+router.afterEach((to) => {
+  if (window.innerWidth <= 768) {
+    // Only auto-resolve if NOT heading to details route (they fetch data and self-resolve)
+    const isDetailRoute = to.name === 'booking' || to.name === 'shuttlebus-detail';
+    if (!isDetailRoute) {
+      setTimeout(() => {
+        bookingStore.isLoading = false;
+      }, 800);
+    }
+  } else {
+    bookingStore.isLoading = false;
+  }
+});
 
 const onSplashReady = () => {
   appReady.value = true;
 };
 
-// Fallback: force show app after 4 seconds if splash doesn't emit
 onMounted(() => {
+  window.addEventListener('resize', updateMobileStatus);
   setTimeout(() => {
     appReady.value = true;
   }, 4000);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileStatus);
 });
 </script>
 
@@ -36,6 +71,8 @@ onMounted(() => {
     <Footer v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi'" />
     <MobileNav v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi'" />
   </div>
+
+  <LoadingScreen :show="bookingStore.isLoading" />
 </template>
 
 <style>
