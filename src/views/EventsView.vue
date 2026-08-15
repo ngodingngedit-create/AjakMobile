@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck, Layers, Info, User } from 'lucide-vue-next';
+import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck, Layers, Info, User, Heart, Ticket, Music, Trophy, Sparkles, LayoutGrid, Users } from 'lucide-vue-next';
 import { bookingStore } from '../store/booking';
+import { showEventsFilter } from '../store/filters';
 
 const router = useRouter();
 
@@ -83,8 +84,108 @@ const fetchShuttleBuses = async () => {
   }
 };
 
+// Mobile Hero Images and Slider
+const mobileHeroImages = [
+  { src: '/bus_parkir.png', alt: 'Promo 1' },
+  { src: '/bus_parkir2.png', alt: 'Promo 2' },
+  { src: '/bus_parkir3.png', alt: 'Promo 3' }
+];
+const currentMobileHeroIndex = ref(0);
+let mobileHeroInterval;
+
+const nextMobileSlide = () => {
+  currentMobileHeroIndex.value = (currentMobileHeroIndex.value + 1) % mobileHeroImages.length;
+};
+
+const prevMobileSlide = () => {
+  currentMobileHeroIndex.value = (currentMobileHeroIndex.value - 1 + mobileHeroImages.length) % mobileHeroImages.length;
+};
+
+const resetMobileAutoplay = () => {
+  if (mobileHeroInterval) clearInterval(mobileHeroInterval);
+  mobileHeroInterval = setInterval(nextMobileSlide, 5000);
+};
+
+// Touch swipe logic
+const mobileTouchStartX = ref(0);
+const mobileTouchEndX = ref(0);
+
+const handleMobileTouchStart = (e) => {
+  mobileTouchStartX.value = e.touches[0].clientX;
+  mobileTouchEndX.value = e.touches[0].clientX;
+};
+
+const handleMobileTouchMove = (e) => {
+  mobileTouchEndX.value = e.touches[0].clientX;
+};
+
+const handleMobileTouchEnd = () => {
+  const diffX = mobileTouchStartX.value - mobileTouchEndX.value;
+  if (Math.abs(diffX) > 50) {
+    if (diffX > 0) {
+      nextMobileSlide();
+    } else {
+      prevMobileSlide();
+    }
+    resetMobileAutoplay();
+  }
+};
+
+// Mobile Categories filtering
+const activeMobileCategory = ref('semua');
+const mobileCategories = [
+  { id: 'semua', label: 'Semua', icon: LayoutGrid, tag: 'Semua' },
+  { id: 'musik', label: 'Konser', icon: Music, tag: 'Musik' },
+  { id: 'pameran', label: 'Pameran', icon: Ticket, tag: 'Pameran' },
+  { id: 'olahraga', label: 'Olahraga', icon: Trophy, tag: 'Olahraga' },
+  { id: 'festival', label: 'Festival', icon: Sparkles, tag: 'Festival' },
+  { id: 'bersama', label: 'Bersama', icon: Users, tag: 'Shuttle Bersama' },
+  { id: 'eksklusif', label: 'Eksklusif', icon: Sofa, tag: 'Shuttle Eksklusif' },
+];
+
+const selectMobileCategory = (catId) => {
+  activeMobileCategory.value = catId;
+};
+
+// Helper function to check keywords in event attributes
+const matchesKeywords = (event, keywords) => {
+  const name = (event.name || '').toLowerCase();
+  const desc = (event.desc || event.description || '').toLowerCase();
+  const city = (event.city || '').toLowerCase();
+  return keywords.some(k => name.includes(k) || desc.includes(k) || city.includes(k));
+};
+
+// Search bar animated placeholder
+const isSearchFocused = ref(false);
+const searchWords = ['shuttle...', 'tiket konser...', 'rental mobil...', 'hotel...', 'tiket pesawat...'];
+const currentWordIndex = ref(0);
+const currentWord = computed(() => searchWords[currentWordIndex.value]);
+let wordRotationInterval = null;
+
+// Sticky search logic
+const isStickySearch = ref(false);
+const checkSearchScroll = () => {
+  if (window.innerWidth <= 768) {
+    const scrollPos = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || window.scrollY || 0;
+    isStickySearch.value = scrollPos > 150;
+  } else {
+    isStickySearch.value = false;
+  }
+};
+
 onMounted(() => {
   fetchShuttleBuses();
+  resetMobileAutoplay();
+  wordRotationInterval = setInterval(() => {
+    currentWordIndex.value = (currentWordIndex.value + 1) % searchWords.length;
+  }, 2500);
+  window.addEventListener('scroll', checkSearchScroll, { passive: true });
+});
+
+onUnmounted(() => {
+  if (mobileHeroInterval) clearInterval(mobileHeroInterval);
+  if (wordRotationInterval) clearInterval(wordRotationInterval);
+  window.removeEventListener('scroll', checkSearchScroll);
 });
 
 const getFacilityIcon = (facility) => {
@@ -110,7 +211,8 @@ const genres = ['Semua', 'Shuttle Bersama', 'Shuttle Eksklusif'];
 const searchQuery = ref('');
 const selectedCity = ref('Semua');
 const selectedGenre = ref('Semua');
-const showFilters = ref(false);
+const showFilters = showEventsFilter;
+
 const filteredEvents = computed(() => {
   let result = [...shuttleBuses.value];
   if (searchQuery.value) {
@@ -123,8 +225,27 @@ const filteredEvents = computed(() => {
       e.plate_number.toLowerCase().includes(q)
     );
   }
+  
   if (selectedCity.value !== 'Semua') result = result.filter(e => e.city === selectedCity.value);
   if (selectedGenre.value !== 'Semua') result = result.filter(e => e.tag === selectedGenre.value);
+
+  // Apply Mobile category filter if selected
+  if (activeMobileCategory.value !== 'semua') {
+    if (activeMobileCategory.value === 'bersama') {
+      result = result.filter(e => e.tag === 'Shuttle Bersama');
+    } else if (activeMobileCategory.value === 'eksklusif') {
+      result = result.filter(e => e.tag === 'Shuttle Eksklusif');
+    } else if (activeMobileCategory.value === 'musik') {
+      result = result.filter(e => matchesKeywords(e, ['konser', 'musik', 'music', 'joyland', 'dewa', 'coldplay', 'sing', 'live', 'show', 'band']));
+    } else if (activeMobileCategory.value === 'pameran') {
+      result = result.filter(e => matchesKeywords(e, ['pameran', 'expo', 'fair', 'exhibition', 'jiexpo', 'art', 'gallery', 'museum']));
+    } else if (activeMobileCategory.value === 'olahraga') {
+      result = result.filter(e => matchesKeywords(e, ['olahraga', 'sport', 'run', 'marathon', 'bola', 'match', 'game', 'race']));
+    } else if (activeMobileCategory.value === 'festival') {
+      result = result.filter(e => matchesKeywords(e, ['festival', 'fest', 'carnival', 'party']));
+    }
+  }
+
   return result;
 });
 
@@ -139,6 +260,7 @@ const clearFilters = () => {
   selectedCity.value = 'Semua';
   selectedGenre.value = 'Semua';
   searchQuery.value = '';
+  activeMobileCategory.value = 'semua';
 };
 
 const selectEvent = (event) => {
@@ -154,6 +276,91 @@ const tagColors = {
 
 <template>
   <div class="events-page">
+    <!-- Mobile Hero Slider Section (Visible only on mobile) -->
+    <div class="mobile-hero-slider-section">
+      <!-- Top overlay controls -->
+      <div class="mobile-slider-top-bar">
+        <button class="mobile-circle-btn back-btn" @click="router.push('/')">
+          <X :size="16" />
+        </button>
+      </div>
+
+      <!-- Slider track -->
+      <div 
+        class="mobile-slider-wrapper"
+        @touchstart="handleMobileTouchStart"
+        @touchmove="handleMobileTouchMove"
+        @touchend="handleMobileTouchEnd"
+      >
+        <div class="mobile-slider-track">
+          <div 
+            v-for="(img, idx) in mobileHeroImages" 
+            :key="idx"
+            class="mobile-slider-slide"
+            :class="{ active: idx === currentMobileHeroIndex }"
+          >
+            <img :src="img.src" :alt="img.alt" />
+            <div class="mobile-slider-gradient"></div>
+          </div>
+        </div>
+
+        <!-- Slider indicators (Dots centered, Ad Badge removed) -->
+        <div class="mobile-slider-bottom-indicators">
+          <div class="mobile-slider-dots">
+            <span 
+              v-for="(img, idx) in mobileHeroImages" 
+              :key="'dot-' + idx"
+              class="mobile-slider-dot"
+              :class="{ active: idx === currentMobileHeroIndex }"
+              @click="currentMobileHeroIndex = idx; resetMobileAutoplay();"
+            ></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating Search Bar -->
+      <div class="mobile-floating-search-bar" :class="{ 'is-sticky': isStickySearch }">
+        <Search :size="18" class="search-icon-mobile" />
+        <div class="search-input-wrapper-mobile">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            @focus="isSearchFocused = true"
+            @blur="isSearchFocused = false"
+            class="search-input-mobile"
+          />
+          <div v-if="!searchQuery && !isSearchFocused" class="sliding-placeholder-container-mobile">
+            <span class="animated-word-wrapper-mobile">
+              <Transition name="placeholder-slide" mode="out-in">
+                <span :key="currentWord" class="animated-word-mobile">Cari {{ currentWord }}</span>
+              </Transition>
+            </span>
+          </div>
+        </div>
+        <button class="search-filter-btn" @click="showFilters = !showFilters">
+          <SlidersHorizontal :size="18" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Horizontal Categories Scroll (Visible only on mobile) -->
+    <div class="mobile-categories-scroll-section">
+      <div class="mobile-categories-scroll-wrapper">
+        <button 
+          v-for="cat in mobileCategories" 
+          :key="cat.id" 
+          class="mobile-category-item"
+          :class="{ active: activeMobileCategory === cat.id }"
+          @click="selectMobileCategory(cat.id)"
+        >
+          <div class="mobile-category-icon-bg bg-peach">
+            <component :is="cat.icon" :size="22" class="red-icon" />
+          </div>
+          <span class="mobile-category-label">{{ cat.label }}</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Header -->
    <!-- <section class="events-hero">
       <div class="events-hero-bg"></div>
@@ -164,34 +371,11 @@ const tagColors = {
       </div>
     </section> -->
 
-    <!-- Search + Filter Bar -->
-    <div class="filter-bar-sticky">
-      <div class="container">
-        <div class="filter-row">
-          <div class="search-box">
-            <Search :size="18" class="search-ico" />
-            <input
-              type="text"
-              v-model="searchQuery"
-              placeholder="Cari armada, plat nomor, rute..."
-              class="search-input"
-            />
-            <button v-if="searchQuery" class="clear-search" @click="searchQuery = ''">
-              <X :size="14" />
-            </button>
-          </div>
-
-          <button class="filter-toggle-btn" @click="showFilters = !showFilters">
-            <SlidersHorizontal :size="16" />
-            Filter
-            <span v-if="activeFiltersCount > 0" class="filter-badge">{{ activeFiltersCount }}</span>
-          </button>
-
-        </div>
-
-        <!-- Expanded Filters -->
-        <transition name="filter-expand">
-          <div v-if="showFilters" class="filter-panel">
+    <!-- Search + Filter Bar (filter panel toggled via navbar) -->
+    <transition name="filter-expand">
+      <div v-if="showFilters" class="filter-bar-sticky">
+        <div class="container">
+          <div class="filter-panel">
             <div class="filter-group">
               <label class="filter-label">Kota Asal</label>
               <div class="filter-chips">
@@ -220,13 +404,12 @@ const tagColors = {
               <X :size="14" /> Reset Filter
             </button>
           </div>
-        </transition>
+        </div>
       </div>
-    </div>
+    </transition>
 
     <!-- Events Grid -->
     <div class="container events-content">
-      <p v-if="!isLoading" class="results-count">{{ filteredEvents.length }} armada ditemukan</p>
 
       <!-- Skeleton Loader -->
       <div v-if="isLoading" class="events-grid">
@@ -435,6 +618,18 @@ const tagColors = {
   flex-wrap: wrap;
 }
 
+/* Mobile: full-width search, no filter button (button is in navbar) */
+.filter-row-mobile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.filter-row-mobile .search-box {
+  flex: 1;
+}
+
 .search-box {
   flex: 1;
   min-width: 200px;
@@ -600,7 +795,7 @@ const tagColors = {
 }
 
 /* ===== EVENTS CONTENT ===== */
-.events-content { padding: 40px 24px 100px; }
+.events-content { padding: 20px 24px 100px; }
 
 .results-count {
   font-size: 0.82rem;
@@ -906,12 +1101,11 @@ const tagColors = {
 @media (max-width: 768px) {
   .events-grid {
     display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory;
+    flex-direction: column !important;
+    overflow-x: unset !important;
+    scroll-snap-type: unset;
     gap: 16px !important;
-    padding: 4px 16px 16px 16px !important;
-    -webkit-overflow-scrolling: touch;
+    padding: 4px 20px 20px 20px !important;
   }
   .events-grid::-webkit-scrollbar {
     display: none;
@@ -926,8 +1120,9 @@ const tagColors = {
   }
   
   .event-card {
-    flex: 0 0 calc(100vw - 32px) !important;
-    scroll-snap-align: center;
+    flex: unset !important;
+    width: 100% !important;
+    scroll-snap-align: unset;
   }
   
   .event-card:not(.skeleton-card) {
@@ -1082,7 +1277,7 @@ const tagColors = {
   }
 
   .mobile-card-price {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #0f172a !important;
     margin: 0 0 12px 0;
@@ -1222,6 +1417,390 @@ const tagColors = {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+  }
+
+  .events-content {
+    padding-top: 0 !important;
+    padding-bottom: 20px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* ===== Mobile-Specific Styling (Desktop Hidden) ===== */
+.mobile-hero-slider-section {
+  display: none;
+}
+
+.mobile-categories-scroll-section {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .events-page {
+    padding-top: 0 !important;
+    background: #fafafa !important;
+  }
+
+  [data-theme="dark"] .events-page {
+    background: #0f0f0f !important;
+  }
+
+  .mobile-hero-slider-section {
+    display: block;
+    position: relative;
+    width: 100%;
+    background-color: #000;
+  }
+
+  .mobile-slider-top-bar {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .mobile-circle-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    color: #1e293b;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+  }
+  
+  .mobile-circle-btn:active {
+    background-color: #f1f5f9;
+    transform: scale(0.92);
+  }
+
+  /* Slider Track */
+  .mobile-slider-wrapper {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    overflow: hidden;
+  }
+
+  .mobile-slider-track {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .mobile-slider-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    z-index: 1;
+  }
+
+  .mobile-slider-slide.active {
+    opacity: 1;
+    z-index: 2;
+  }
+
+  .mobile-slider-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-slider-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 35%,
+      transparent 65%,
+      rgba(0, 0, 0, 0.4) 100%
+    );
+    z-index: 3;
+  }
+
+  /* Slider Indicators */
+  .mobile-slider-bottom-indicators {
+    position: absolute;
+    bottom: 30px; /* Leave space for search bar */
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+  }
+
+  .mobile-slider-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .mobile-slider-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transition: all 0.25s ease;
+    cursor: pointer;
+  }
+
+  .mobile-slider-dot.active {
+    background: var(--primary, #C94C4C) !important;
+    width: 18px;
+    border-radius: 4px;
+  }
+
+  /* Floating Search Bar */
+  .mobile-floating-search-bar {
+    position: absolute;
+    bottom: -19px; /* center align with 38px height */
+    left: 16px;
+    right: 16px;
+    height: 38px;
+    background: #ffffff;
+    border-radius: 19px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 15;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .mobile-floating-search-bar.is-sticky {
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    bottom: auto;
+    width: auto;
+    height: 38px;
+    border-radius: 19px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    padding: 0 16px;
+    background: rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Full-width white background mask behind the floating sticky search bar capsule */
+  .mobile-floating-search-bar.is-sticky::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 62px; /* height (38px) + top spacing (12px) + padding (12px) */
+    background: #ffffff;
+    z-index: -1;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    pointer-events: none;
+  }
+
+  [data-theme="dark"] .mobile-floating-search-bar {
+    background: #1e1e1e;
+    border-color: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .mobile-floating-search-bar.is-sticky {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="dark"] .mobile-floating-search-bar.is-sticky::before {
+    background: #0f0f0f; /* Match dark theme background */
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .search-icon-mobile {
+    color: var(--primary, #C94C4C);
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .search-input-mobile {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    outline: none;
+    font-weight: 500;
+    z-index: 2;
+  }
+
+  .search-input-wrapper-mobile {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .sliding-placeholder-container-mobile {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-weight: 500;
+    z-index: 1;
+  }
+
+  .animated-word-wrapper-mobile {
+    display: inline-block;
+  }
+
+  .animated-word-mobile {
+    display: block;
+  }
+
+  /* Placeholder slide transition */
+  .placeholder-slide-enter-active,
+  .placeholder-slide-leave-active {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  }
+  .placeholder-slide-enter-from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  .placeholder-slide-leave-to {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+
+  .search-filter-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--primary); /* soft red */
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .search-filter-btn:active {
+    transform: scale(0.9);
+  }
+
+  /* Horizontal Category Scroll */
+  .mobile-categories-scroll-section {
+    display: block;
+    margin-top: 36px;
+    padding: 12px 0 8px 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mobile-categories-scroll-wrapper {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 16px 10px 16px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-categories-scroll-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-category-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    padding: 2px 0;
+    flex: 0 0 68px; /* same style as homepage category items */
+    outline: none;
+  }
+
+  .mobile-category-icon-bg {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+    position: relative;
+    background: #fff0f0;
+  }
+
+  [data-theme="dark"] .mobile-category-icon-bg {
+    background: #251212;
+  }
+
+  .red-icon {
+    color: var(--primary, #C94C4C);
+    transition: color 0.2s ease;
+  }
+
+  .mobile-category-item:active .mobile-category-icon-bg {
+    transform: scale(0.9);
+  }
+
+  .mobile-category-label {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--text-dark, #2d2d2d);
+    text-align: center;
+    margin-top: 8px;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  /* Active States */
+  .mobile-category-item.active .mobile-category-icon-bg {
+    background: var(--primary, #C94C4C);
+    box-shadow: 0 4px 12px rgba(201, 76, 76, 0.25);
+  }
+
+  .mobile-category-item.active .red-icon {
+    color: #ffffff;
+  }
+
+  .mobile-category-item.active .mobile-category-label {
+    color: var(--primary, #C94C4C);
+    font-weight: 700;
+  }
+}
+</style>
+
+<style>
+@media (max-width: 768px) {
+  /* Hides the global navbar only on mobile for the events view page */
+  .app-container:has(.events-page) .navbar {
+    display: none !important;
   }
 }
 </style>

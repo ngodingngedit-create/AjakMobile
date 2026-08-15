@@ -2,7 +2,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { authState } from '../store/auth';
 import { themeStore } from '../store/theme';
-import { User, LogOut, Search, X, Moon, Sun, Home, Calendar, Layers, MapPin, Info, Menu, FileText, Headphones } from 'lucide-vue-next';
+import { User, LogOut, Search, X, Moon, Sun, Home, Calendar, Layers, MapPin, Info, Menu, FileText, Headphones, SlidersHorizontal } from 'lucide-vue-next';
+import { showEventsFilter } from '../store/filters';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
@@ -286,7 +287,20 @@ onUnmounted(() => {
             <X size="12" />
           </button>
         </div>
-        <button class="mobile-nav-cs-btn" @click="goToHelp" title="Customer Service">
+        <button
+          v-if="route.path === '/events'"
+          class="mobile-nav-cs-btn"
+          @click="showEventsFilter = !showEventsFilter"
+          title="Filter"
+        >
+          <SlidersHorizontal size="18" class="mobile-nav-cs-icon" />
+        </button>
+        <button
+          v-else
+          class="mobile-nav-cs-btn"
+          @click="goToHelp"
+          title="Customer Service"
+        >
           <Headphones size="18" class="mobile-nav-cs-icon" />
         </button>
       </div>
