@@ -179,13 +179,13 @@ onMounted(() => {
   wordRotationInterval = setInterval(() => {
     currentWordIndex.value = (currentWordIndex.value + 1) % searchWords.length;
   }, 2500);
-  window.addEventListener('scroll', checkSearchScroll, { passive: true });
+  window.addEventListener('scroll', checkSearchScroll, { capture: true, passive: true });
 });
 
 onUnmounted(() => {
   if (mobileHeroInterval) clearInterval(mobileHeroInterval);
   if (wordRotationInterval) clearInterval(wordRotationInterval);
-  window.removeEventListener('scroll', checkSearchScroll);
+  window.removeEventListener('scroll', checkSearchScroll, { capture: true });
 });
 
 const getFacilityIcon = (facility) => {

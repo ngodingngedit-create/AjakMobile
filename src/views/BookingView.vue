@@ -1053,6 +1053,12 @@ const activeRouteInfo = computed(() => {
   };
 });
 
+const isSoundProject = computed(() => {
+  const name = (event.value?.name || '').toLowerCase();
+  const slug = (route.params.slug || '').toLowerCase();
+  return name.includes('sound project') || name.includes('sounds project') || slug.includes('sound-project') || slug.includes('sounds-project');
+});
+
 const routeDurationText = computed(() => {
   if (!event.value?.start_time || !event.value?.end_time) return '10j';
   const parseTime = (tStr) => {
@@ -1976,7 +1982,7 @@ const tryAutoplay = () => {
       <!-- Header Banner Image & Back Button overlay -->
       <div v-if="activeTab !== 'tiket'" class="mobile-header-banner">
         <button class="mobile-back-circle-btn" @click="goBack" aria-label="Back">
-          <ChevronLeft :size="24" />
+          <ChevronLeft :size="18" />
         </button>
         <img :src="event.image" :alt="event.name" class="mobile-banner-img" />
       </div>
@@ -2088,15 +2094,15 @@ const tryAutoplay = () => {
           <!-- New Event Info Card -->
           <div class="mobile-event-info-card">
             <div class="info-row">
-              <Calendar :size="20" class="info-icon" />
+              <Calendar :size="16" class="info-icon" />
               <span class="info-value">{{ formatEventDates(event) }}</span>
             </div>
             <div class="info-row">
-              <Clock :size="20" class="info-icon" />
+              <Clock :size="16" class="info-icon" />
               <span class="info-value">{{ event.start_time }} - {{ event.end_time }} {{ event.zone_time || 'WIB' }}</span>
             </div>
             <div class="info-row">
-              <MapPin :size="20" class="info-icon" />
+              <MapPin :size="16" class="info-icon" />
               <div class="info-value-col">
                 <span class="venue-title">{{ event.venue_name || event.location_name || 'Lokasi Keberangkatan' }}</span>
                 <span class="venue-addr" v-if="event.venue_address || event.location_address">
@@ -2163,7 +2169,7 @@ const tryAutoplay = () => {
           </div>
 
           <!-- Seating and categories list (vouchers) -->
-          <div class="outer-section-group" style="background: #ffffff; border-radius: 16px; padding: 18px 16px; border: 1px solid #edf2f7; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+          <div class="outer-section-group">
             <h3 class="outer-section-title" style="font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 16px 0; letter-spacing: -0.2px;">Pilih Kursi</h3>
             <div class="tickets-list-wrapper" style="display: flex; flex-direction: column; gap: 16px;">
               <div 
@@ -2259,7 +2265,7 @@ const tryAutoplay = () => {
 
                 <div class="ticket-price-row-accordion" @click="toggleTicketAccordion(t.id)">
                   <div class="price-info-col">
-                    <span class="price-info-label">MULAI DARI</span>
+                    <span class="price-info-label">Mulai Dari</span>
                     <span class="price-info-val">
                       <template v-if="!selectedTripStatus">{{ formatRp(t.price) }}</template>
                       <template v-else>{{ formatRp(getEffectivePrice(t)) }}</template>
@@ -2326,7 +2332,7 @@ const tryAutoplay = () => {
 
                     <!-- Choose Trip Status (Shuttle type) if PP or multiple status options exist -->
                     <div class="trip-status-section" v-if="tripStatusOptions.length > 0" style="margin-bottom: 12px;">
-                      <span class="detail-col-label" style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: block;">Pilih Jenis Seat</span>
+                      <span class="detail-col-label" style="font-size: 0.72rem; color: #64748b; font-weight: 500; text-transform: none; margin-bottom: 6px; display: block;">Pilih Jenis Seat</span>
                       <div class="trip-status-dropdown-wrapper">
                         <select v-model="selectedTripStatus" class="trip-status-select" :class="{ 'trip-status-select-error': tripTypeError }" @change="bookingStore.selectedTripStatus = selectedTripStatus">
                           <option :value="null" disabled>Pilih jenis seat</option>
@@ -2340,7 +2346,7 @@ const tryAutoplay = () => {
                     <!-- Expanded bottom action area -->
                     <div class="expanded-bottom-action-row">
                       <div class="ticket-ending-details">
-                        <span class="ending-label">{{ getTicketStatusClass(t) === 'not-started' ? 'PENJUALAN DIMULAI PADA' : 'BERAKHIR PADA' }}</span>
+                        <span class="ending-label">{{ getTicketStatusClass(t) === 'not-started' ? 'Penjualan dimulai pada' : 'Berakhir pada' }}</span>
                         <span class="ending-value">
                           <template v-if="getTicketStatusClass(t) === 'not-started'">
                             {{ formatDateLabelLong(t.ticket_start_date) }}, <span class="countdown-text">{{ t.ticket_start_time }} WIB</span>
@@ -2351,8 +2357,23 @@ const tryAutoplay = () => {
                         </span>
                       </div>
                       
-                      <!-- Accordion Stepper -->
-                      <div class="stepper-selector">
+                      <!-- Pilih Seat Button (Only for The Sound Project) -->
+                      <button 
+                        v-if="isSoundProject"
+                        type="button" 
+                        class="btn-pilih-seat-mobile"
+                        :disabled="getTicketStatusClass(t) === 'not-started' || getTicketStatusClass(t) === 'ended' || !hasAvailableseats(t)"
+                        @click.stop="selectTicketCategory(t)"
+                      >
+                        {{ (() => {
+                          const key = `${t.id}_${selectedDate}_${selectedSesi}`;
+                          const seats = selectedseatsMap[key];
+                          return seats && seats.length > 0 ? `Pilih Seat (${seats.length})` : 'Pilih Seat';
+                        })() }}
+                      </button>
+
+                      <!-- Accordion Stepper (For other events) -->
+                      <div v-else class="stepper-selector">
                         <button 
                           type="button" 
                           class="stepper-btn btn-minus" 
@@ -5028,12 +5049,12 @@ const tryAutoplay = () => {
   }
   
   .ending-label {
-    font-size: 0.55rem !important;
+    font-size: 0.52rem !important;
     letter-spacing: 0.2px;
   }
   
   .ending-value {
-    font-size: 0.76rem !important;
+    font-size: 0.68rem !important;
     white-space: nowrap !important;
   }
   
@@ -7122,11 +7143,11 @@ const tryAutoplay = () => {
   }
 
   .ticket-ending-details .ending-label {
-    font-size: 0.55rem !important;
+    font-size: 0.52rem !important;
   }
 
   .ticket-ending-details .ending-value {
-    font-size: 0.68rem !important;
+    font-size: 0.64rem !important;
     font-weight: 800 !important;
   }
 
@@ -9004,8 +9025,8 @@ html.lock-scroll, body.lock-scroll {
   position: absolute;
   top: 16px;
   left: 16px;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   border: none;
@@ -9096,7 +9117,7 @@ html.lock-scroll, body.lock-scroll {
   width: auto;
   padding: 12px 0;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #64748b;
   background: transparent;
@@ -9388,7 +9409,7 @@ html.lock-scroll, body.lock-scroll {
   border-top-right-radius: 12px;
   display: flex;
   flex-direction: column;
-  padding: 10px 16px 12px; /* reduced padding from 16px 20px */
+  padding: 8px 14px 10px; /* reduced padding from 10px 16px 12px */
   z-index: 999;
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
   gap: 8px; /* reduced gap from 12px */
@@ -9407,7 +9428,7 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .total-harga-label {
-  font-size: 0.65rem; /* slightly smaller font label */
+  font-size: 0.58rem; /* slightly smaller font label */
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
@@ -9415,7 +9436,7 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .total-harga-val {
-  font-size: 1.15rem; /* reduced from 1.35rem */
+  font-size: 1.05rem; /* reduced from 1.15rem */
   font-weight: 900;
   color: #0f172a; /* Dark text as shown in mockup */
   letter-spacing: -0.2px;
@@ -9427,7 +9448,7 @@ html.lock-scroll, body.lock-scroll {
   gap: 4px;
   color: var(--primary, #c94c4c); /* Red detail text */
   font-weight: 700;
-  font-size: 0.82rem; /* reduced from 0.9rem */
+  font-size: 0.78rem; /* reduced from 0.82rem */
   cursor: pointer;
 }
 
@@ -9438,10 +9459,10 @@ html.lock-scroll, body.lock-scroll {
 .btn-beli-tiket-sekarang {
   background: var(--primary, #c94c4c); /* Red button */
   color: #ffffff;
-  padding: 10px 0; /* reduced padding from 14px 0 */
+  padding: 8px 0; /* reduced padding from 10px 0 */
   border-radius: 10px; /* reduced border radius from 12px */
   font-weight: 700;
-  font-size: 0.92rem; /* reduced from 1rem */
+  font-size: 0.85rem; /* reduced from 0.92rem */
   border: none;
   cursor: pointer;
   text-align: center;
@@ -9472,7 +9493,7 @@ html.lock-scroll, body.lock-scroll {
   align-items: flex-start;
   gap: 12px;
   color: #334155;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   font-weight: 500; /* changed from 600 to remove bold styling */
 }
 
@@ -9561,23 +9582,22 @@ html.lock-scroll, body.lock-scroll {
 .mobile-ticket-voucher-card {
   position: relative;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: none;
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   transition: all 0.25s ease;
 }
 
 .mobile-ticket-voucher-card.selected {
-  border-color: var(--primary, #c94c4c);
-  box-shadow: 0 4px 16px rgba(201, 76, 76, 0.06);
+  box-shadow: 0 0 0 2px var(--primary, #c94c4c), 0 4px 16px rgba(201, 76, 76, 0.15);
 }
 
 .ticket-title-main {
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #0f172a;
   margin: 0 0 6px 0;
   line-height: 1.35;
@@ -9629,7 +9649,7 @@ html.lock-scroll, body.lock-scroll {
 
 .price-info-val {
   font-size: 1.1rem;
-  font-weight: 900;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -9665,7 +9685,7 @@ html.lock-scroll, body.lock-scroll {
   background: #f8fafc;
   border-radius: 12px;
   padding: 10px 12px;
-  border: 1px solid #edf2f7;
+  border: none;
 }
 
 .ticket-ending-details {
@@ -9675,38 +9695,63 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .ending-label {
-  font-size: 0.62rem;
+  font-size: 0.54rem;
   font-weight: 500;
   color: #64748b;
   letter-spacing: 0.3px;
 }
 
 .ending-value {
-  font-size: 0.8rem;
+  font-size: 0.66rem;
   font-weight: 500;
   color: #334155;
+}
+
+/* Premium Seat Button Mobile */
+.btn-pilih-seat-mobile {
+  background: var(--primary, #c94c4c);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(201, 76, 76, 0.15);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-pilih-seat-mobile:active {
+  transform: scale(0.95);
+  background: #b13d3d;
+}
+.btn-pilih-seat-mobile:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Stepper Selector Styling */
 .stepper-selector {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px; /* reduced from 12px */
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 3px;
+  padding: 2px; /* reduced from 3px */
   box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
 .stepper-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px; /* reduced from 28px */
+  height: 24px; /* reduced from 28px */
   border-radius: 6px;
   border: none;
   background: #f1f5f9;
   color: #0f172a;
-  font-size: 0.95rem;
+  font-size: 0.85rem; /* reduced from 0.95rem */
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -9726,7 +9771,7 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .stepper-val {
-  font-size: 0.95rem;
+  font-size: 0.85rem; /* reduced from 0.95rem */
   font-weight: 800;
   color: #0f172a;
   min-width: 14px;
@@ -9779,8 +9824,8 @@ html.lock-scroll, body.lock-scroll {
 }
 
 .acc-info-value-bold {
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #0f172a;
 }
 
