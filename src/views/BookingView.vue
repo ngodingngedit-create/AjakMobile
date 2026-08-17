@@ -2242,11 +2242,7 @@ const tryAutoplay = () => {
                       <!-- Seating canvas & Konva Stage -->
                       <div class="seatmap-canvas-body">
                         <div class="bus-cabin-canvas-viewport" :class="{ 'is-fullscreen-mode': isFullscreen }" @wheel.prevent="onWheel">
-                          <div class="mobile-zoom-controls-overlay" @touchstart.stop>
-                            <button type="button" class="m-zoom-btn" @click="isFullscreen = !isFullscreen">🔍</button>
-                            <button type="button" class="m-zoom-btn" @click="zoomIn">➕</button>
-                            <button type="button" class="m-zoom-btn" @click="zoomOut">➖</button>
-                          </div>
+
                           
                           <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 0; position: relative; z-index: 1;">
                             <v-stage :config="{ width: 800, height: 600, draggable: isStageDraggable, scaleX: zoom, scaleY: zoom }" @wheel="onWheel" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
@@ -2940,15 +2936,7 @@ const tryAutoplay = () => {
                                     <button type="button" class="zoom-control-btn text-btn" @click="resetZoomPan">Reset Layout</button>
                                   </div>
 
-                                  <!-- Mobile Zoom Controls (Visible on Mobile Only) -->
-                                  <div class="mobile-zoom-controls-overlay" @touchstart.stop>
-                                    <button type="button" class="m-zoom-btn" @click="isFullscreen = !isFullscreen">
-                                      <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
-                                      <svg v-else viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"></path></svg>
-                                    </button>
-                                    <button type="button" class="m-zoom-btn" @click="zoomIn">➕</button>
-                                    <button type="button" class="m-zoom-btn" @click="zoomOut">➖</button>
-                                  </div>
+
 
                                   <div 
                                     class="bus-cabin-container konva-container"
