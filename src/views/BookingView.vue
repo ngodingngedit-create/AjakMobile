@@ -292,21 +292,42 @@ const onSheetDragStart = (e) => {
   sheetDragStartY.value = touch.clientY;
   sheetDragDeltaY.value = 0;
   isSheetDragging.value = true;
+
+  // Register global window listeners for smooth dragging outside element boundaries
+  window.addEventListener('touchmove', onSheetGlobalMove, { passive: false });
+  window.addEventListener('touchend', onSheetGlobalEnd);
+  window.addEventListener('mousemove', onSheetGlobalMove);
+  window.addEventListener('mouseup', onSheetGlobalEnd);
 };
 
-const onSheetDragMove = (e) => {
-  if (!isSheetDragging.value || window.innerWidth > 768) return;
-  if (e.cancelable) {
-    e.preventDefault();
-  }
+const onSheetGlobalMove = (e) => {
+  if (!isSheetDragging.value) return;
   const touch = e.touches ? e.touches[0] : e;
   const delta = touch.clientY - sheetDragStartY.value;
   if (delta < 0) {
     // Dragging UP — allow flexible drag with soft dampening
-    sheetDragDeltaY.value = Math.max(-120, delta * 0.6);
+    sheetDragDeltaY.value = Math.max(-40, delta * 0.3);
   } else {
     // Dragging DOWN — allow freely
     sheetDragDeltaY.value = delta;
+  }
+};
+
+const onSheetGlobalEnd = () => {
+  if (!isSheetDragging.value) return;
+  isSheetDragging.value = false;
+
+  // Unregister global event listeners
+  window.removeEventListener('touchmove', onSheetGlobalMove);
+  window.removeEventListener('touchend', onSheetGlobalEnd);
+  window.removeEventListener('mousemove', onSheetGlobalMove);
+  window.removeEventListener('mouseup', onSheetGlobalEnd);
+
+  if (sheetDragDeltaY.value > SHEET_DISMISS_THRESHOLD) {
+    animatedCloseSheet();
+  } else {
+    // Snap back smoothly
+    sheetDragDeltaY.value = 0;
   }
 };
 
@@ -324,18 +345,6 @@ const animatedCloseSheet = () => {
       router.back();
     }
   }, SHEET_CLOSE_DURATION);
-};
-
-const onSheetDragEnd = () => {
-  if (!isSheetDragging.value || window.innerWidth > 768) return;
-  isSheetDragging.value = false;
-  if (sheetDragDeltaY.value > SHEET_DISMISS_THRESHOLD) {
-    // Animate dismiss
-    animatedCloseSheet();
-  } else {
-    // Snap back smoothly
-    sheetDragDeltaY.value = 0;
-  }
 };
 
 const handleScrollTabs = () => {
@@ -2190,9 +2199,36 @@ const tryAutoplay = () => {
                     
                     <!-- Inner card body (seating selector canvas) -->
                     <div class="sheet-inner-card">
-                      <div class="mobile-seatmap-header" @touchstart.stop @mousedown.stop>
-                        <button type="button" class="btn-close-seatmap-mobile" @click.stop="clearSelectedTicket">✕</button>
-                        <h3 class="mobile-seatmap-header-title">Pilih seat</h3>
+                      <div class="mobile-seatmap-header" 
+                           @touchstart="onSheetDragStart" 
+                           @touchmove="onSheetDragMove" 
+                           @touchend="onSheetDragEnd" 
+                           @mousedown="onSheetDragStart" 
+                           @mousemove="onSheetDragMove" 
+                           @mouseup="onSheetDragEnd">
+                        <div class="mobile-seatmap-header-top">
+                          <button type="button" class="btn-close-seatmap-mobile" @touchstart.stop @click.stop="clearSelectedTicket">✕</button>
+                        </div>
+                        <h3 class="mobile-seatmap-header-title">Pilih Kursi {{ selectedTripStatus?.name || 'Pergi' }} (Gratis)</h3>
+                        
+                        <!-- Legends Row inside Header -->
+                        <div class="mobile-legends-header-row">
+                          <div class="legend-item"><span class="legend-box selected"></span><span>Dipilih</span></div>
+                          <div class="legend-item"><span class="legend-box available"></span><span>Tersedia</span></div>
+                          <div class="legend-item"><span class="legend-box occupied"></span><span>Tidak Tersedia</span></div>
+                        </div>
+
+                        <div class="mobile-seatmap-route-timeline">
+                          <div class="timeline-col-icons">
+                            <span class="dot-circle-outline"></span>
+                            <span class="timeline-vertical-line"></span>
+                            <span class="dot-circle-solid"></span>
+                          </div>
+                          <div class="timeline-col-texts">
+                            <div class="timeline-station-name">{{ activeRouteInfo?.origin_name || 'Bandung' }}</div>
+                            <div class="timeline-station-name">{{ activeRouteInfo?.destination_name || 'Surabaya Pasarturi' }}</div>
+                          </div>
+                        </div>
                       </div>
                       <div class="seatmap-canvas-header">
                         <div class="seatmap-canvas-title-group">
@@ -2207,18 +2243,13 @@ const tryAutoplay = () => {
                       <!-- Seating canvas & Konva Stage -->
                       <div class="seatmap-canvas-body">
                         <div class="bus-cabin-canvas-viewport" :class="{ 'is-fullscreen-mode': isFullscreen }" @wheel.prevent="onWheel">
-                          <div class="mobile-legends-overlay" @touchstart.stop>
-                            <div class="legend-item"><span class="legend-box selected"></span><span>Dipilih</span></div>
-                            <div class="legend-item"><span class="legend-box available"></span><span>Tersedia</span></div>
-                            <div class="legend-item"><span class="legend-box occupied"></span><span>Tidak Tersedia</span></div>
-                          </div>
                           <div class="mobile-zoom-controls-overlay" @touchstart.stop>
                             <button type="button" class="m-zoom-btn" @click="isFullscreen = !isFullscreen">🔍</button>
                             <button type="button" class="m-zoom-btn" @click="zoomIn">➕</button>
                             <button type="button" class="m-zoom-btn" @click="zoomOut">➖</button>
                           </div>
                           
-                          <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f8fafc; border-radius: 12px; position: relative; z-index: 1;">
+                          <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 12px; position: relative; z-index: 1;">
                             <v-stage :config="{ width: 800, height: 600, draggable: isStageDraggable, scaleX: zoom, scaleY: zoom }" @wheel="onWheel" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
                               <v-layer>
                                 <v-group :config="{ x: 400, y: 100 }">
@@ -2238,12 +2269,69 @@ const tryAutoplay = () => {
                           </div>
                         </div>
                         
+                        <!-- PP Step Navigation Bar -->
+                        <div v-if="isPP" class="pp-step-nav-bar">
+                          <div v-if="!isMobile" class="pp-nav-info">
+                            <div class="pp-steps-indicator">
+                              <span class="pp-step-dot" :class="ppStep === 1 ? 'active' : 'completed'">1</span>
+                              <span class="pp-step-line" :class="ppStep === 2 ? 'completed' : ''"></span>
+                              <span class="pp-step-dot" :class="ppStep === 2 ? 'active' : 'inactive'">2</span>
+                            </div>
+                            <div>
+                              <span class="pp-nav-label-text" v-if="ppStep === 1">Pilih seat Pergi</span>
+                              <span class="pp-nav-label-text" v-else>Pilih seat Pulang</span>
+                              <span class="pp-nav-seat-count">{{ ppStep === 1 ? ppPergiSelectedCount : ppPulangSelectedCount }} seat</span>
+                            </div>
+                          </div>
+                          <div class="pp-nav-actions">
+                            <button 
+                              v-if="ppStep === 2" 
+                              type="button" 
+                              class="pp-nav-btn pp-nav-back" 
+                              @click="goToPpStep1"
+                            >
+                              ← Kembali
+                            </button>
+                            <button 
+                              v-if="ppStep === 1"
+                              type="button" 
+                              class="pp-nav-btn pp-nav-next" 
+                              :disabled="ppPergiSelectedCount === 0"
+                              @click="goToPpStep2"
+                            >
+                              Lanjut ke Pulang →
+                            </button>
+                            <button
+                              v-if="ppStep === 2"
+                              type="button"
+                              class="pp-nav-btn pp-nav-next"
+                              :disabled="ppPulangSelectedCount === 0"
+                              @click="goToBuyerDetails()"
+                            >
+                              Lanjut Pembayaran →
+                            </button>
+                            <span v-if="ppStep === 2 && errors.seats" class="pp-nav-error">{{ errors.seats }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Mobile Canvas Bottom Action Bar (non-PP only, PP uses step nav bar) -->
                         <div v-if="isMobile && !isPP" class="canvas-bottom-action-bar">
                           <div class="canvas-bottom-left">
-                            <span class="canvas-bottom-label">Total {{ selectedseats.length }} Seat</span>
+                            <span class="canvas-bottom-seat-count">
+                              <template v-if="selectedseats.length === 0">Pilih seat</template>
+                              <template v-else>{{ selectedseats.length }} seat dipilih</template>
+                            </span>
                             <span class="canvas-bottom-total-price">{{ formatRp(getEffectivePrice(t) * (selectedseats.length || 1)) }}</span>
                           </div>
-                          <button type="button" class="btn-canvas-pembayaran" :disabled="selectedseats.length === 0" @click="goToBuyerDetails()">Lanjut Pembayaran</button>
+                          <div class="canvas-bottom-right">
+                            <button
+                              class="canvas-bottom-btn"
+                              :disabled="selectedseats.length === 0"
+                              @click="goToBuyerDetails()"
+                            >
+                              Selanjutnya
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2357,9 +2445,9 @@ const tryAutoplay = () => {
                         </span>
                       </div>
                       
-                      <!-- Pilih Seat Button (Only for The Sound Project) -->
+                      <!-- Pilih Seat Button (Only for The Sound Project / Seating tickets) -->
                       <button 
-                        v-if="isSoundProject"
+                        v-if="isSoundProject || t.ticket_type_id !== 0"
                         type="button" 
                         class="btn-pilih-seat-mobile"
                         :disabled="getTicketStatusClass(t) === 'not-started' || getTicketStatusClass(t) === 'ended' || !hasAvailableseats(t)"
@@ -2757,19 +2845,39 @@ const tryAutoplay = () => {
 
                               <!-- White card — everything below the handle -->
                               <div class="sheet-inner-card">
-                                <!-- Mobile seatmap Header (supports dragging too) -->
-                                <div 
-                                  class="mobile-seatmap-header"
-                                  @touchstart.stop="onSheetDragStart"
-                                  @touchmove.stop="onSheetDragMove"
-                                  @touchend.stop="onSheetDragEnd"
-                                  @mousedown.stop="onSheetDragStart"
-                                  @mousemove.stop="onSheetDragMove"
-                                  @mouseup.stop="onSheetDragEnd"
-                                >
-                                  <button type="button" class="btn-close-seatmap-mobile" @touchstart.stop @click.stop="clearSelectedTicket">✕</button>
-                                  <h3 class="mobile-seatmap-header-title">Pilih seat</h3>
-                                </div>
+                                 <div 
+                                   class="mobile-seatmap-header"
+                                   @touchstart="onSheetDragStart"
+                                   @touchmove="onSheetDragMove"
+                                   @touchend="onSheetDragEnd"
+                                   @mousedown="onSheetDragStart"
+                                   @mousemove="onSheetDragMove"
+                                   @mouseup="onSheetDragEnd"
+                                 >
+                                   <div class="mobile-seatmap-header-top">
+                                     <button type="button" class="btn-close-seatmap-mobile" @touchstart.stop @click.stop="clearSelectedTicket">✕</button>
+                                   </div>
+                                   <h3 class="mobile-seatmap-header-title">Pilih Kursi {{ selectedTripStatus?.name || 'Pergi' }} (Gratis)</h3>
+                                   
+                                   <!-- Legends Row inside Header -->
+                                   <div class="mobile-legends-header-row">
+                                     <div class="legend-item"><span class="legend-box selected"></span><span>Dipilih</span></div>
+                                     <div class="legend-item"><span class="legend-box available"></span><span>Tersedia</span></div>
+                                     <div class="legend-item"><span class="legend-box occupied"></span><span>Tidak Tersedia</span></div>
+                                   </div>
+
+                                   <div class="mobile-seatmap-route-timeline">
+                                     <div class="timeline-col-icons">
+                                       <span class="dot-circle-outline"></span>
+                                       <span class="timeline-vertical-line"></span>
+                                       <span class="dot-circle-solid"></span>
+                                     </div>
+                                     <div class="timeline-col-texts">
+                                       <div class="timeline-station-name">{{ activeRouteInfo?.origin_name || 'Bandung' }}</div>
+                                       <div class="timeline-station-name">{{ activeRouteInfo?.destination_name || 'Surabaya Pasarturi' }}</div>
+                                     </div>
+                                   </div>
+                                 </div>
                               <div class="seatmap-canvas-header">
                                 <div class="seatmap-canvas-title-group">
                                   <span class="seatmap-canvas-badge" :style="{ backgroundColor: t.seat_color || 'var(--primary)' }">
@@ -2840,22 +2948,6 @@ const tryAutoplay = () => {
                                     <button type="button" class="zoom-control-btn text-btn" @click="resetZoomPan">Reset Layout</button>
                                   </div>
 
-                                  <!-- Mobile Legends (Visible on Mobile Only) -->
-                                  <div class="mobile-legends-overlay" @touchstart.stop>
-                                    <div class="legend-item">
-                                      <span class="legend-box selected"></span>
-                                      <span>Dipilih</span>
-                                    </div>
-                                    <div class="legend-item">
-                                      <span class="legend-box available"></span>
-                                      <span>Tersedia</span>
-                                    </div>
-                                    <div class="legend-item">
-                                      <span class="legend-box occupied"></span>
-                                      <span>Tidak Tersedia</span>
-                                    </div>
-                                  </div>
-
                                   <!-- Mobile Zoom Controls (Visible on Mobile Only) -->
                                   <div class="mobile-zoom-controls-overlay" @touchstart.stop>
                                     <button type="button" class="m-zoom-btn" @click="isFullscreen = !isFullscreen">
@@ -2868,7 +2960,7 @@ const tryAutoplay = () => {
 
                                   <div 
                                     class="bus-cabin-container konva-container"
-                                    style="width: 100%; height: 100%; overflow: hidden; background: #f8fafc; border-radius: 12px; position: relative; z-index: 1;"
+                                    style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 12px; position: relative; z-index: 1;"
                                   >
                                     <v-stage 
                                       :config="{ 
@@ -6036,7 +6128,7 @@ const tryAutoplay = () => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
+  background: #ffffff;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   position: sticky;
   bottom: 0;
@@ -6067,9 +6159,9 @@ const tryAutoplay = () => {
 
 .canvas-bottom-btn {
   padding: 11px 26px;
-  background: linear-gradient(135deg, var(--primary, #C94C4C), #b73d3d);
+  background: var(--primary, #C94C4C);
   color: #fff;
-  border: none;
+  border: 1.5px solid #a33b3b;
   border-radius: 10px;
   font-family: inherit;
   font-size: 0.88rem;
@@ -7412,9 +7504,10 @@ const tryAutoplay = () => {
 
   /* Backdrop overlay */
   .mobile-seatmap-backdrop {
+    display: block !important;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.52);
+    background: rgba(0, 0, 0, 0.65);
     z-index: 1998;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
@@ -7444,8 +7537,8 @@ const tryAutoplay = () => {
     bottom: 0;
     width: 100%;
     /* Extra height to give the handle room above the card */
-    height: calc(92vh + 0px);
-    max-height: 94vh;
+    height: calc(98vh + 0px);
+    max-height: 98vh;
     z-index: 1999;
     background: transparent;   /* transparent — card below handles bg */
     padding: 0;
@@ -7499,7 +7592,7 @@ const tryAutoplay = () => {
   /* White card — the actual visible bottom sheet content */
   .sheet-inner-card {
     flex: 1;
-    background-color: var(--bg-color, #FFF8F8);
+    background-color: #f0f3f8;
     border-radius: 20px 20px 0 0;
     overflow: hidden;
     display: flex;
@@ -7515,13 +7608,101 @@ const tryAutoplay = () => {
 
   .mobile-seatmap-header {
     display: flex !important;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 16px 10px;
-    background-color: var(--bg-color, #FFF8F8);
-    border-bottom: 1px solid var(--border-color);
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+    padding: 16px 16px 20px;
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
     width: 100%;
     z-index: 30;
+    flex-shrink: 0;
+  }
+
+  .mobile-seatmap-header-top {
+    display: flex;
+    justify-content: flex-start;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .mobile-seatmap-route-timeline {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .timeline-col-icons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 0;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .dot-circle-outline {
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid #94a3b8;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .timeline-vertical-line {
+    width: 1px;
+    flex-grow: 1;
+    background-color: #cbd5e1;
+    margin: 1px 0;
+  }
+
+  .dot-circle-solid {
+    width: 7px;
+    height: 7px;
+    background-color: #94a3b8;
+    border-radius: 50%;
+  }
+
+  .timeline-col-texts {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 38px;
+  }
+
+  .timeline-station-name {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #1e293b;
+    line-height: 1.1;
+  }
+
+  .mobile-legends-header-row {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    margin-top: 8px;
+    margin-bottom: 2px;
+    width: 100%;
+  }
+
+  .mobile-legends-header-row .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #475569;
+  }
+
+  .mobile-legends-header-row .legend-box {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    border: 1px solid #cbd5e1;
     flex-shrink: 0;
   }
 
@@ -7547,7 +7728,7 @@ const tryAutoplay = () => {
 
   .mobile-seatmap-header-title {
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--text-dark, #2A2A2A);
     margin-bottom: 0;
   }
@@ -7647,8 +7828,8 @@ const tryAutoplay = () => {
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: var(--card-bg, #FAF9F9);
-    border-top: 1.5px solid var(--border-color);
+    background-color: #ffffff;
+    border-top: 1.5px solid var(--border-color, #e2e8f0);
     padding: 10px 14px;
     z-index: 2100;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
