@@ -18,13 +18,13 @@ const updateMobileStatus = () => {
 
 // Global route transitions loader on mobile view
 router.beforeEach((to, from, next) => {
-  if (window.innerWidth <= 768) {
+  if (window.innerWidth <= 768 && to.path !== from.path) {
     bookingStore.isLoading = true;
   }
   next();
 });
 
-router.afterEach((to) => {
+router.afterEach((to, from) => {
   if (window.innerWidth <= 768) {
     // Only auto-resolve if NOT heading to details route (they fetch data and self-resolve)
     const isDetailRoute = to.name === 'booking' || to.name === 'shuttlebus-detail';
