@@ -302,6 +302,9 @@ const onSheetDragStart = (e) => {
 
 const onSheetGlobalMove = (e) => {
   if (!isSheetDragging.value) return;
+  if (e.cancelable) {
+    e.preventDefault();
+  }
   const touch = e.touches ? e.touches[0] : e;
   const delta = touch.clientY - sheetDragStartY.value;
   if (delta < 0) {
@@ -2191,9 +2194,9 @@ const tryAutoplay = () => {
                 <!-- Teleport seatmap (Teleport to body on mobile) -->
                 <Teleport :disabled="!isMobile" v-if="(selectedTicket?.id === t.id && isCanvasOpen) || isSheetClosing" to="body">
                   <div v-if="isMobile" class="mobile-seatmap-backdrop" :class="{ 'is-closing': isSheetClosing }" @click="clearSelectedTicket" @touchmove.prevent></div>
-                  <div class="selected-seatmap-canvas-container" :class="{ 'is-closing': isSheetClosing }" :style="{ transform: `translateY(${sheetDragDeltaY}px)`, transition: isSheetDragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)' }" @click.stop>
+                  <div class="selected-seatmap-canvas-container" :class="{ 'is-closing': isSheetClosing }" :style="{ transform: `translateY(${sheetDragDeltaY}px)`, transition: isSheetDragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)', animation: isSheetDragging || sheetDragDeltaY !== 0 ? 'none' : '' }" @click.stop>
                     <!-- Drag handle -->
-                    <div class="sheet-drag-handle-area" @touchstart.stop="onSheetDragStart" @touchmove.stop="onSheetDragMove" @touchend.stop="onSheetDragEnd" @mousedown.stop="onSheetDragStart" @mousemove.stop="onSheetDragMove" @mouseup.stop="onSheetDragEnd">
+                    <div class="sheet-drag-handle-area" @touchstart.stop="onSheetDragStart" @mousedown.stop="onSheetDragStart">
                       <div class="sheet-drag-handle-pill"></div>
                     </div>
                     
@@ -2201,11 +2204,7 @@ const tryAutoplay = () => {
                     <div class="sheet-inner-card">
                       <div class="mobile-seatmap-header" 
                            @touchstart="onSheetDragStart" 
-                           @touchmove="onSheetDragMove" 
-                           @touchend="onSheetDragEnd" 
-                           @mousedown="onSheetDragStart" 
-                           @mousemove="onSheetDragMove" 
-                           @mouseup="onSheetDragEnd">
+                           @mousedown="onSheetDragStart">
                         <div class="mobile-seatmap-header-top">
                           <button type="button" class="btn-close-seatmap-mobile" @touchstart.stop @click.stop="clearSelectedTicket">✕</button>
                         </div>
@@ -2249,10 +2248,10 @@ const tryAutoplay = () => {
                             <button type="button" class="m-zoom-btn" @click="zoomOut">➖</button>
                           </div>
                           
-                          <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 12px; position: relative; z-index: 1;">
+                          <div class="bus-cabin-container konva-container" style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 0; position: relative; z-index: 1;">
                             <v-stage :config="{ width: 800, height: 600, draggable: isStageDraggable, scaleX: zoom, scaleY: zoom }" @wheel="onWheel" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
                               <v-layer>
-                                <v-group :config="{ x: 400, y: 100 }">
+                                <v-group :config="{ x: 400, y: isMobile ? 110 : 100 }">
                                   <template v-for="shape in parsedseatmap" :key="shape.id">
                                     <v-group v-if="shape.type === 'box'" :config="shape.groupConfig">
                                       <v-rect :config="shape.rectConfig" />
@@ -2826,7 +2825,8 @@ const tryAutoplay = () => {
                               :class="{ 'is-closing': isSheetClosing }"
                               :style="{ 
                                 transform: `translateY(${sheetDragDeltaY}px)`,
-                                transition: isSheetDragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)'
+                                transition: isSheetDragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+                                animation: isSheetDragging || sheetDragDeltaY !== 0 ? 'none' : ''
                               }"
                               @click.stop
                             >
@@ -2834,11 +2834,7 @@ const tryAutoplay = () => {
                               <div 
                                 class="sheet-drag-handle-area"
                                 @touchstart.stop="onSheetDragStart"
-                                @touchmove.stop="onSheetDragMove"
-                                @touchend.stop="onSheetDragEnd"
                                 @mousedown.stop="onSheetDragStart"
-                                @mousemove.stop="onSheetDragMove"
-                                @mouseup.stop="onSheetDragEnd"
                               >
                                 <div class="sheet-drag-handle-pill"></div>
                               </div>
@@ -2848,11 +2844,7 @@ const tryAutoplay = () => {
                                  <div 
                                    class="mobile-seatmap-header"
                                    @touchstart="onSheetDragStart"
-                                   @touchmove="onSheetDragMove"
-                                   @touchend="onSheetDragEnd"
                                    @mousedown="onSheetDragStart"
-                                   @mousemove="onSheetDragMove"
-                                   @mouseup="onSheetDragEnd"
                                  >
                                    <div class="mobile-seatmap-header-top">
                                      <button type="button" class="btn-close-seatmap-mobile" @touchstart.stop @click.stop="clearSelectedTicket">✕</button>
@@ -2960,7 +2952,7 @@ const tryAutoplay = () => {
 
                                   <div 
                                     class="bus-cabin-container konva-container"
-                                    style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 12px; position: relative; z-index: 1;"
+                                    style="width: 100%; height: 100%; overflow: hidden; background: #f0f3f8; border-radius: 0; position: relative; z-index: 1;"
                                   >
                                     <v-stage 
                                       :config="{ 
@@ -2977,7 +2969,7 @@ const tryAutoplay = () => {
                                     >
                                       <v-layer>
                                         <!-- Translate layer to center the layout initially -->
-                                        <v-group :config="{ x: 400, y: 100 }">
+                                        <v-group :config="{ x: 400, y: isMobile ? 110 : 100 }">
                                           <template v-for="shape in parsedseatmap" :key="shape.id">
                                                     <!-- Box type (e.g. KEMUDI) -->
                                             <v-group v-if="shape.type === 'box'" :config="shape.groupConfig">
@@ -7753,6 +7745,13 @@ const tryAutoplay = () => {
     border-radius: 0;
     margin: 0;
     touch-action: none;
+  }
+
+  .sheet-inner-card .bus-cabin-container {
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
   }
   
   .sheet-inner-card .canvas-zoom-controls {
