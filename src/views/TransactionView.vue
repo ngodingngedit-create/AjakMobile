@@ -2666,6 +2666,40 @@ const isLongText = (str, limit = 20) => {
   .btn-submit-mobile:hover {
     background-color: #b34242;
   }
+
+  .tx-main-content {
+    padding-bottom: 150px !important;
+  }
+  .page-main-heading {
+    font-size: 1.35rem !important;
+    margin-bottom: 16px !important;
+  }
+  .form-card-wrapper {
+    border-radius: 10px !important;
+    margin-bottom: 16px !important;
+  }
+  .form-card-header {
+    padding: 12px 16px !important;
+  }
+  .form-header-title {
+    font-size: 0.92rem !important;
+  }
+  .form-card-body {
+    padding: 16px !important;
+  }
+  .form-group-item {
+    margin-bottom: 12px !important;
+    gap: 4px !important;
+  }
+  .form-input-label {
+    font-size: 0.7rem !important;
+  }
+  .form-text-input,
+  .phone-prefix-select,
+  .phone-number-input {
+    padding: 10px 12px !important;
+    font-size: 0.85rem !important;
+  }
 }
 
 /* Mobile Summary Drawer Bottom Sheet */

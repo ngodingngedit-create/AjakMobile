@@ -58,7 +58,7 @@ onUnmounted(() => {
   <Splash @ready="onSplashReady" />
   
   <div v-show="appReady" class="app-container">
-    <Navbar v-if="$route.path !== '/portfolio'" />
+    <Navbar v-if="$route.path !== '/portfolio' && $route.path !== '/profile' && !$route.path.startsWith('/shuttle-invoice')" />
     
     <main class="main-content">
       <router-view v-slot="{ Component }">

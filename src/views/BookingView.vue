@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { MapPin, Clock, Calendar, ChevronLeft, ChevronDown, Check, Info, User, Mail, Phone, Wind, Zap, Music, ShieldCheck, Wifi, Sofa } from 'lucide-vue-next';
+import { MapPin, Clock, Calendar, ChevronLeft, ChevronDown, Check, Info, User, Mail, Phone, Wind, Zap, Music, ShieldCheck, Wifi, Sofa, ArrowLeft } from 'lucide-vue-next';
 import { bookingStore } from '../store/booking';
 
 const route = useRoute();
@@ -1994,7 +1994,7 @@ const tryAutoplay = () => {
       <!-- Header Banner Image & Back Button overlay -->
       <div v-if="activeTab !== 'tiket'" class="mobile-header-banner">
         <button class="mobile-back-circle-btn" @click="goBack" aria-label="Back">
-          <ChevronLeft :size="18" />
+          <ArrowLeft :size="18" />
         </button>
         <img :src="event.image" :alt="event.name" class="mobile-banner-img" />
       </div>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck, Layers, Info, User, Heart, Ticket, Music, Trophy, Sparkles, LayoutGrid, Users } from 'lucide-vue-next';
+import { Calendar, MapPin, Tag, Clock, Search, SlidersHorizontal, X, Wind, Wifi, Zap, Sofa, ShieldCheck, Layers, Info, User, Heart, Ticket, Music, Trophy, Sparkles, LayoutGrid, Users, ArrowLeft } from 'lucide-vue-next';
 import { bookingStore } from '../store/booking';
 import { showEventsFilter } from '../store/filters';
 
@@ -281,7 +281,7 @@ const tagColors = {
       <!-- Top overlay controls -->
       <div class="mobile-slider-top-bar">
         <button class="mobile-circle-btn back-btn" @click="router.push('/')">
-          <X :size="16" />
+          <ArrowLeft :size="16" />
         </button>
       </div>
 

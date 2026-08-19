@@ -148,7 +148,7 @@ onUnmounted(() => {
 
 
 <template>
-  <header v-if="route.name !== 'shuttlebus-detail' && route.name !== 'booking'" class="navbar" :class="{ 'scrolled': scrolled, 'no-shadow': route.name === 'help', 'transparent-home': isOnHome && !scrolled }">
+  <header v-if="route.name !== 'shuttlebus-detail' && route.name !== 'booking' && route.name !== 'transaksi'" class="navbar" :class="{ 'scrolled': scrolled, 'no-shadow': route.name === 'help', 'transparent-home': isOnHome && !scrolled }">
     <div class="container navbar-content">
       <!-- Desktop Navbar Layout -->
       <div class="navbar-desktop-layout">

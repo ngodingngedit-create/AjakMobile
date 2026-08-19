@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { CheckCircle, Clock, AlertCircle, ArrowLeft, Download, ExternalLink } from 'lucide-vue-next';
+import { CheckCircle, Clock, AlertCircle, ArrowLeft, Download, ExternalLink, WifiOff, Wifi } from 'lucide-vue-next';
 
 const route = useRoute();
 const router = useRouter();
@@ -11,21 +11,101 @@ const invoice = ref(null);
 const isLoading = ref(true);
 const errorMsg = ref('');
 
+// Offline connection state
+const isOnline = ref(navigator.onLine);
+
+// Map local bookings structure to invoice format for offline fallback
+const mapLocalBookingToInvoice = (b) => {
+  return {
+    invoice_no: b.code,
+    created_at: b.date,
+    payment_status: 'SUCCESS',
+    total_price: b.totalPrice,
+    admin_fee: 5000,
+    grandtotal: b.totalPrice + 5000,
+    pemesan: {
+      passenger_name: b.customer?.name || 'User',
+      email: b.customer?.email || '',
+      phone: b.customer?.phone || ''
+    },
+    passengers: (b.selectedseats || []).map(seat => ({
+      passenger_name: `${b.customer?.name || 'Penumpang'} (Kursi ${seat})`,
+      name: b.customer?.name || 'Penumpang',
+      identity_number: '-'
+    })),
+    tickets: (b.selectedseats || []).map(seat => ({
+      price: b.totalPrice / (b.selectedseats.length || 1),
+      order_seat_number: seat,
+      ticket: {
+        name: b.event?.name || 'Shuttle Ticket'
+      }
+    }))
+  };
+};
+
+const handleConnectionChange = () => {
+  isOnline.value = navigator.onLine;
+};
+
 onMounted(async () => {
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shuttle-order/${invoiceNo}`);
-    if (!res.ok) throw new Error('Invoice tidak ditemukan.');
-    const result = await res.json();
-    if (result.success && result.data) {
-      invoice.value = result.data;
-    } else {
-      errorMsg.value = 'Data invoice tidak valid.';
+  window.addEventListener('online', handleConnectionChange);
+  window.addEventListener('offline', handleConnectionChange);
+
+  const cachedKey = `ajak_cached_invoice_${invoiceNo}`;
+  const cachedData = localStorage.getItem(cachedKey);
+  
+  // 1. Try loading from local storage cache first for instant display
+  if (cachedData) {
+    try {
+      invoice.value = JSON.parse(cachedData);
+      isLoading.value = false;
+    } catch (e) {}
+  }
+
+  const actuallyOnline = isOnline.value;
+
+  // 2. Fetch from API if online
+  if (actuallyOnline) {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/shuttle-order/${invoiceNo}`);
+      if (!res.ok) throw new Error('Invoice tidak ditemukan.');
+      const result = await res.json();
+      if (result.success && result.data) {
+        invoice.value = result.data;
+        // Save to offline cache
+        localStorage.setItem(cachedKey, JSON.stringify(result.data));
+        errorMsg.value = '';
+      } else {
+        if (!invoice.value) errorMsg.value = 'Data invoice tidak valid.';
+      }
+    } catch (err) {
+      console.error('API Fetch error for invoice, fallback to cache/local:', err);
+      if (!invoice.value) {
+        // Attempt to find inside local bookings fallback
+        const localBookings = JSON.parse(localStorage.getItem('ajak_bookings') || '[]');
+        const matched = localBookings.find(b => b.code === invoiceNo);
+        if (matched) {
+          invoice.value = mapLocalBookingToInvoice(matched);
+        } else {
+          errorMsg.value = 'Gagal mengambil data invoice.';
+        }
+      }
+    } finally {
+      isLoading.value = false;
     }
-  } catch (err) {
-    console.error(err);
-    errorMsg.value = 'Gagal mengambil data invoice.';
-  } finally {
+  } else {
+    // 3. Complete Offline mode
     isLoading.value = false;
+    if (!invoice.value) {
+      // Look up local bookings fallback
+      const localBookings = JSON.parse(localStorage.getItem('ajak_bookings') || '[]');
+      const matched = localBookings.find(b => b.code === invoiceNo);
+      if (matched) {
+        invoice.value = mapLocalBookingToInvoice(matched);
+      } else {
+        errorMsg.value = 'Anda sedang offline dan e-tiket ini belum disimpan untuk akses offline.';
+      }
+    }
   }
 });
 
@@ -50,11 +130,11 @@ const getStatusConfig = (status) => {
   switch(status?.toUpperCase()) {
     case 'SUCCESS':
     case 'PAID':
-      return { color: '#2E7D32', bg: 'rgba(46, 125, 50, 0.1)', icon: CheckCircle, label: 'LUNAS' };
+      return { color: '#2E7D32', bg: 'rgba(46, 125, 50, 0.1)', icon: CheckCircle, label: 'Lunas' };
     case 'PENDING':
-      return { color: '#F57C00', bg: 'rgba(245, 124, 0, 0.1)', icon: Clock, label: 'MENUNGGU PEMBAYARAN' };
+      return { color: '#F57C00', bg: 'rgba(245, 124, 0, 0.1)', icon: Clock, label: 'Menunggu Pembayaran' };
     default:
-      return { color: '#C94C4C', bg: 'rgba(201, 76, 76, 0.1)', icon: AlertCircle, label: status || 'FAILED' };
+      return { color: '#C94C4C', bg: 'rgba(201, 76, 76, 0.1)', icon: AlertCircle, label: status || 'Failed' };
   }
 };
 
@@ -68,6 +148,14 @@ const downloadPdf = () => {
 const continuePayment = () => {
   if (invoice.value?.xendit_url) {
     window.location.href = invoice.value.xendit_url;
+  }
+};
+
+const goBack = () => {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/profile?tab=history');
   }
 };
 
@@ -142,12 +230,19 @@ const tickets = computed(() => {
 <template>
   <div class="invoice-page">
     <div class="container invoice-container">
-      <div class="top-actions print-hidden" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <button class="btn-back" @click="router.push('/')">
-          <ArrowLeft :size="20" /> Kembali ke Beranda
-        </button>
-        <div v-if="invoice" style="display: flex; gap: 12px;">
+      <div class="top-actions print-hidden">
+        <div class="header-nav-invoice" @click="goBack">
+          <button class="back-circle-btn">
+            <ArrowLeft :size="16" color="#000" />
+          </button>
+          <span class="header-title-invoice">Kembali</span>
         </div>
+      </div>
+
+      <!-- Offline Mode Warn Banner -->
+      <div v-if="!isOnline" class="offline-banner print-hidden">
+        <WifiOff :size="18" />
+        <span>Mode Offline - E-Tiket Dimuat Dari Penyimpanan Lokal</span>
       </div>
 
       <div class="invoice-card" v-if="isLoading">
@@ -168,7 +263,7 @@ const tickets = computed(() => {
         <div class="invoice-header">
           <div class="header-left" style="width: 100%;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-              <h1 class="invoice-title">INVOICE</h1>
+              <h1 class="invoice-title">E-Ticket / Invoice</h1>
               <div class="status-badge" :style="{ backgroundColor: statusConfig.bg, color: statusConfig.color }">
                 <component :is="statusConfig.icon" :size="14" />
                 <span>{{ statusConfig.label }}</span>
@@ -320,20 +415,37 @@ const tickets = computed(() => {
 .top-actions {
   margin-bottom: 24px;
 }
-.btn-back {
-  background: none;
-  border: none;
-  color: var(--text-light, #666);
+.header-nav-invoice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  gap: 12px;
   cursor: pointer;
+}
+
+.back-circle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
   padding: 0;
 }
-.btn-back:hover {
-  color: var(--primary, #C94C4C);
+.back-circle-btn:active {
+  background-color: #f1f5f9;
+  transform: scale(0.92);
+}
+
+.header-title-invoice {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-dark, #222);
 }
 
 .invoice-card {
@@ -441,7 +553,6 @@ const tickets = computed(() => {
 .detail-item .label {
   font-size: 0.8rem;
   color: var(--text-light, #666);
-  text-transform: uppercase;
   font-weight: 700;
 }
 .detail-item .value {
@@ -468,7 +579,6 @@ const tickets = computed(() => {
   font-size: 0.85rem;
   font-weight: 800;
   color: var(--text-light, #666);
-  text-transform: uppercase;
 }
 .data-table td {
   font-size: 0.95rem;
@@ -489,7 +599,6 @@ const tickets = computed(() => {
   font-size: 0.65rem;
   padding: 2px 6px;
   border-radius: 4px;
-  text-transform: uppercase;
   font-weight: 800;
   margin-left: 8px;
   vertical-align: middle;
@@ -594,24 +703,132 @@ const tickets = computed(() => {
 }
 
 @media (max-width: 768px) {
+  .invoice-page {
+    padding: 20px 6px 40px;
+  }
+  .invoice-card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
   .detail-grid {
     grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 8px;
+  }
+  .detail-item {
+    gap: 1px;
+  }
+  .detail-item .label {
+    font-size: 0.6rem;
+    font-weight: 500;
+  }
+  .detail-item .value {
+    font-size: 0.78rem;
+    font-weight: 600;
   }
   .invoice-header {
-    padding: 20px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .invoice-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .invoice-no {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .invoice-date {
+    font-size: 0.7rem;
+    font-weight: 400;
+    text-align: left;
+    margin-top: 2px;
+  }
+  .status-badge {
+    padding: 2px 8px;
+    font-size: 0.65rem;
+    font-weight: 600;
   }
   .invoice-body {
-    padding: 16px 20px 40px;
+    padding: 10px 12px 20px;
+  }
+  .section-block {
+    margin-top: 12px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .data-table th, .data-table td {
+    padding: 6px 8px;
+    font-size: 0.74rem;
+  }
+  .data-table th {
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+  .data-table td strong {
+    font-weight: 600;
+  }
+  .data-table td small {
+    font-size: 0.62rem;
+    font-weight: 400;
+  }
+  .invoice-summary-box {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .summary-row {
+    font-size: 0.74rem;
+    font-weight: 400;
+    margin-bottom: 6px;
+  }
+  .summary-row.grand-total {
+    font-size: 0.95rem;
+    font-weight: 700;
   }
   .btn-action {
     width: 100%;
     justify-content: center;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
   }
-  .invoice-title {
-    font-size: 1.5rem;
+  .action-area {
+    padding: 12px 16px 0 !important;
   }
-  .invoice-no {
-    font-size: 0.9rem;
+  .btn-back {
+    font-size: 0.85rem;
+    font-weight: 500;
   }
+  .offline-banner {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+}
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #fff3e0;
+  border: 1px solid #ffe0b2;
+  color: #e65100;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 </style>
