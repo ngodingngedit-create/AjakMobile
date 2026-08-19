@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { authState } from '../store/auth';
 import { useRouter, useRoute } from 'vue-router';
 import {
@@ -12,10 +12,7 @@ import {
 const router = useRouter();
 const route = useRoute();
 
-// Authentication guard
-if (!authState.isLoggedIn) {
-  authState.login();
-}
+
 
 // View switcher: 'profile' or 'history'
 const activeView = ref('profile');
@@ -269,16 +266,54 @@ onMounted(() => {
     activeView.value = 'history';
   }
 });
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab === 'history') {
+      activeView.value = 'history';
+    } else {
+      activeView.value = 'profile';
+    }
+  }
+);
+
+const handleLogout = () => {
+  authState.logout();
+  router.push('/');
+};
 </script>
 
 <template>
   <div class="mobile-frame-container">
-    <div class="profile-page-mobile">
-      
-      <!-- ========================================== -->
-      <!-- VIEW: PROFILE MENU                         -->
-      <!-- ========================================== -->
-      <div v-if="activeView === 'profile'" class="view-content">
+    <!-- If NOT logged in -->
+    <div v-if="!authState.isLoggedIn" class="login-required-view">
+      <div class="header-nav-placeholder">
+        <button class="back-circle-btn-placeholder" @click="router.push('/')">
+          <ArrowLeft :size="16" color="#000" />
+        </button>
+        <span class="header-title-placeholder">Profile</span>
+      </div>
+      <div class="login-required-content">
+        <div class="icon-lock-wrapper">
+          <User :size="36" color="var(--primary)" />
+        </div>
+        <h3>Login Terlebih Dahulu</h3>
+        <p>Silakan masuk ke akun Anda untuk melihat profil dan riwayat transaksi.</p>
+        <button class="btn-login-redirect" @click="router.push('/login')">
+          Login
+        </button>
+      </div>
+    </div>
+
+    <!-- If logged in -->
+    <template v-else>
+      <div class="profile-page-mobile">
+        
+        <!-- ========================================== -->
+        <!-- VIEW: PROFILE MENU                         -->
+        <!-- ========================================== -->
+        <div v-if="activeView === 'profile'" class="view-content">
         
         <!-- Header Gradient with Theme colors matching style.css -->
         <div class="profile-header-gradient">
@@ -605,8 +640,8 @@ onMounted(() => {
         </div>
       </div>
     </div>
-
-  </div>
+  </template>
+</div>
 </template>
 
 <style scoped>
@@ -1380,5 +1415,105 @@ onMounted(() => {
     background-color: rgba(201, 76, 76, 0.08) !important;
     color: var(--primary) !important;
   }
+}
+
+/* Login Required Styles */
+.login-required-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: transparent;
+}
+
+.header-nav-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.back-circle-btn-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.back-circle-btn-placeholder:hover {
+  background-color: #e8e8ed;
+}
+
+.header-title-placeholder {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.login-required-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 24px 100px;
+  text-align: center;
+}
+
+.icon-lock-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(201, 76, 76, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.login-required-content h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2d2d2d;
+  margin-bottom: 10px;
+}
+
+.login-required-content p {
+  font-size: 0.85rem;
+  color: #70757a;
+  margin-bottom: 24px;
+  line-height: 1.45;
+  max-width: 240px;
+}
+
+.btn-login-redirect {
+  width: 100%;
+  max-width: 200px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background-color: var(--primary);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(201, 76, 76, 0.2);
+  transition: all 0.2s;
+}
+
+.btn-login-redirect:hover {
+  background-color: #b03d3d;
+  transform: translateY(-1px);
+}
+
+.btn-login-redirect:active {
+  transform: translateY(0);
 }
 </style>

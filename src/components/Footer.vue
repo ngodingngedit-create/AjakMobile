@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <footer class="footer">
+  <footer class="footer" :class="{ 'profile-page-footer': route.path === '/profile' }">
     <div class="container footer-container">
       <!-- Desktop & Tablet Layout -->
       <div v-if="false" class="footer-grid desktop-footer-content">
@@ -643,5 +643,10 @@ onBeforeUnmount(() => {
     overflow: hidden !important;
     text-overflow: ellipsis !important;
   }
+}
+
+.footer.profile-page-footer {
+  background-color: #f7f7f9 !important;
+  border-top: none !important;
 }
 </style>

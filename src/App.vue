@@ -58,7 +58,7 @@ onUnmounted(() => {
   <Splash @ready="onSplashReady" />
   
   <div v-show="appReady" class="app-container">
-    <Navbar v-if="$route.path !== '/portfolio' && $route.path !== '/profile' && !$route.path.startsWith('/shuttle-invoice')" />
+    <Navbar v-if="$route.path !== '/portfolio' && $route.path !== '/profile' && !$route.path.startsWith('/shuttle-invoice') && $route.path !== '/login'" />
     
     <main class="main-content">
       <router-view v-slot="{ Component }">
@@ -68,8 +68,8 @@ onUnmounted(() => {
       </router-view>
     </main>
 
-    <Footer v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi'" />
-    <MobileNav v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi'" />
+    <Footer v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi' && $route.path !== '/login'" />
+    <MobileNav v-if="$route.path !== '/portfolio' && !$route.path.startsWith('/booking') && $route.path !== '/transaksi' && $route.path !== '/login'" />
   </div>
 
   <LoadingScreen :show="bookingStore.isLoading" />

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { Home, Calendar, Layers, MapPin, User } from 'lucide-vue-next';
+import { Home, Calendar, Layers, MapPin, User, FileText } from 'lucide-vue-next';
 import { authState } from '../store/auth';
 import { useRouter, useRoute } from 'vue-router';
 
@@ -8,12 +8,18 @@ const router = useRouter();
 const route = useRoute();
 const activeSection = ref('home');
 
-const navItems = [
-  { id: 'home',      label: 'Beranda', icon: Home,     route: '/' },
-  { id: 'events',    label: 'Event',   icon: Calendar, route: '/events' },
-  { id: 'services',  label: 'Layanan', icon: Layers,   route: null },
-  { id: 'profile',   label: 'Profile', icon: User,     route: '/profile' },
-];
+const visibleNavItems = computed(() => {
+  const items = [
+    { id: 'home',      label: 'Beranda', icon: Home,     route: '/' },
+    { id: 'events',    label: 'Event',   icon: Calendar, route: '/events' },
+    { id: 'services',  label: 'Layanan', icon: Layers,   route: null },
+  ];
+  if (authState.isLoggedIn) {
+    items.push({ id: 'transaksi', label: 'Transaksi', icon: FileText, route: '/profile?tab=history' });
+  }
+  items.push({ id: 'profile',   label: 'Profile', icon: User,     route: '/profile' });
+  return items;
+});
 
 const isOnHome = computed(() => route.path === '/');
 
@@ -62,25 +68,31 @@ const goProfile = () => {
 };
 
 const isProfileActive = computed(() => {
-  return route.path.startsWith('/profile') || route.path === '/login' || route.path === '/dashboard';
+  return (route.path.startsWith('/profile') && route.query.tab !== 'history') || route.path === '/login' || route.path === '/dashboard';
 });
 
 const isEventActive = computed(() => {
   return route.path === '/events' || route.path.startsWith('/booking') || route.path === '/confirmation';
 });
 
+const isTransaksiActive = computed(() => {
+  return route.path === '/profile' && route.query.tab === 'history';
+});
+
 const getItemActive = (item) => {
   if (item.id === 'events') return isEventActive.value;
   if (item.id === 'profile') return isProfileActive.value;
+  if (item.id === 'transaksi') return isTransaksiActive.value;
   if (!isOnHome.value) return false;
   return activeSection.value === item.id || (item.id === 'home' && activeSection.value === 'home');
 };
 
 const activeIndex = computed(() => {
-  if (isEventActive.value) return 1;
-  if (isProfileActive.value) return 3;
+  if (isEventActive.value) return visibleNavItems.value.findIndex(i => i.id === 'events');
+  if (isProfileActive.value) return visibleNavItems.value.findIndex(i => i.id === 'profile');
+  if (isTransaksiActive.value) return visibleNavItems.value.findIndex(i => i.id === 'transaksi');
   if (!isOnHome.value) return -1;
-  return navItems.findIndex(i => i.id === activeSection.value);
+  return visibleNavItems.value.findIndex(i => i.id === activeSection.value);
 });
 
 onMounted(() => window.addEventListener('scroll', onScroll));
@@ -89,18 +101,21 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 
 <template>
   <div class="mobile-nav-wrapper">
-    <nav class="crystal-nav">
+    <nav class="crystal-nav" :class="{ 'profile-page-nav': route.path === '/profile' }">
       <!-- Top Active Indicator Bar -->
       <div 
         class="active-indicator" 
-        :style="{ transform: `translateX(calc(${activeIndex} * 100%))` }"
+        :style="{ 
+          width: `${100 / visibleNavItems.length}%`,
+          transform: `translateX(calc(${activeIndex} * 100%))` 
+        }"
       >
         <div class="indicator-line"></div>
       </div>
 
       <div class="nav-content">
         <button 
-          v-for="item in navItems" 
+          v-for="item in visibleNavItems" 
           :key="item.id"
           class="nav-btn"
           :class="{ active: getItemActive(item) }"
@@ -228,5 +243,9 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 
 .nav-btn:active .icon-box {
   transform: scale(0.9);
+}
+
+.crystal-nav.profile-page-nav {
+  background: #f7f7f9;
 }
 </style>

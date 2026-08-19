@@ -625,11 +625,11 @@ onUnmounted(() => {
     gap: 10px;
     box-sizing: border-box;
     padding: 0 4px;
-    height: 34px;
+    height: 44px;
   }
   
   .navbar {
-    padding: 5px 0 !important;
+    padding: 8px 0 !important;
     box-shadow: none !important;
   }
 
@@ -648,12 +648,12 @@ onUnmounted(() => {
   /* Mobile Search Pill */
   .mobile-nav-search-bar {
     flex: 1;
-    height: 28px;
+    height: 36px;
     background: #ffffff;
-    border-radius: 14px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
-    padding: 0 10px;
+    padding: 0 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     border: 1px solid rgba(0, 0, 0, 0.05);
     box-sizing: border-box;
@@ -681,7 +681,7 @@ onUnmounted(() => {
     border: none !important;
     background: transparent !important;
     outline: none !important;
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     font-weight: 300 !important; /* Thin font weight */
     color: #2d2d2d;
     padding-left: 6px;
@@ -699,7 +699,7 @@ onUnmounted(() => {
     pointer-events: none;
     z-index: 1;
     color: #444444; /* Darker charcoal black placeholder */
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     font-weight: 300 !important; /* Thin font weight */
     font-family: inherit;
     white-space: nowrap;
@@ -708,7 +708,7 @@ onUnmounted(() => {
     display: inline-flex;
     position: relative;
     overflow: hidden;
-    height: 16px;
+    height: 18px;
     margin-left: 3px;
     align-items: center;
   }
@@ -721,8 +721,8 @@ onUnmounted(() => {
   .mobile-nav-search-icon {
     color: var(--primary); /* red color #C94C4C */
     flex-shrink: 0;
-    width: 13px !important;
-    height: 13px !important;
+    width: 15px !important;
+    height: 15px !important;
   }
   .mobile-nav-search-bar .clear-search-btn {
     background: none;
@@ -736,14 +736,14 @@ onUnmounted(() => {
     z-index: 3;
   }
   .mobile-nav-search-bar .clear-search-btn svg {
-    width: 10px !important;
-    height: 10px !important;
+    width: 12px !important;
+    height: 12px !important;
   }
 
   /* Mobile CS Circle button */
   .mobile-nav-cs-btn {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.05);
@@ -765,8 +765,8 @@ onUnmounted(() => {
   }
   .mobile-nav-cs-icon {
     color: var(--primary); /* red color */
-    width: 14px !important;
-    height: 14px !important;
+    width: 17px !important;
+    height: 17px !important;
   }
 
   /* Placeholder slide transition */

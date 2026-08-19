@@ -2740,10 +2740,9 @@ const triggerToast = (msg) => {
     display: none !important;
   }
 
-  /* Sticky Services Bar */
   .mobile-sticky-services-bar {
     position: fixed;
-    top: 44px;
+    top: 60px;
     left: 10px;
     right: 0;
     z-index: 998;
