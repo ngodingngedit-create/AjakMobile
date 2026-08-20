@@ -426,10 +426,12 @@ const tagColors = {
 
       <!-- Empty State -->
       <div v-else-if="filteredEvents.length === 0" class="empty-state">
-        <div class="empty-icon">🚌</div>
+        <div class="empty-icon">
+          <Search :size="28" class="empty-icon-svg" />
+        </div>
         <h3>Armada tidak ditemukan</h3>
         <p>Coba sesuaikan filter atau kata pencarian kamu.</p>
-        <button class="btn btn-primary" @click="clearFilters">Reset Filter</button>
+        <button class="btn-reset-filter" @click="clearFilters">Reset Filter</button>
       </div>
 
       <!-- Actual Cards Grid -->
@@ -810,9 +812,46 @@ const tagColors = {
   text-align: center;
   padding: 80px 24px;
 }
-.empty-icon { font-size: 3rem; margin-bottom: 16px; }
-.empty-state h3 { font-size: 1.4rem; margin-bottom: 8px; }
-.empty-state p { color: var(--text-light); margin-bottom: 24px; }
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--input-bg);
+  margin: 0 auto 14px;
+  border: 1px solid var(--border-color);
+}
+.empty-icon-svg { color: var(--text-light); }
+.empty-state h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+.empty-state p {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  margin-bottom: 20px;
+  font-weight: 400;
+}
+.btn-reset-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.btn-reset-filter:hover { background: #b34242; }
 
 /* ===== EVENTS GRID ===== */
 .events-grid {

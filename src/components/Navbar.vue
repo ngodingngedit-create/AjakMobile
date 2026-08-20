@@ -648,12 +648,12 @@ onUnmounted(() => {
   /* Mobile Search Pill */
   .mobile-nav-search-bar {
     flex: 1;
-    height: 36px;
+    height: 42px;
     background: #ffffff;
-    border-radius: 18px;
+    border-radius: 21px;
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     border: 1px solid rgba(0, 0, 0, 0.05);
     box-sizing: border-box;
