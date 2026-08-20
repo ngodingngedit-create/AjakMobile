@@ -16,22 +16,28 @@ const updateMobileStatus = () => {
   isMobile.value = window.innerWidth <= 768;
 };
 
+// Route names yang ada di mobile navbar — tidak perlu loading
+const NAVBAR_ROUTES = new Set(['home', 'events', 'profile', 'transaksi', 'login']);
+
+// Route names yang perlu loading karena fetch data
+const DETAIL_ROUTES = new Set(['booking', 'shuttlebus-detail']);
+
 // Global route transitions loader on mobile view
 router.beforeEach((to, from, next) => {
   if (window.innerWidth <= 768 && to.path !== from.path) {
-    bookingStore.isLoading = true;
+    // Hanya tampilkan loading untuk detail routes, bukan navbar routes
+    if (DETAIL_ROUTES.has(to.name)) {
+      bookingStore.isLoading = true;
+    }
   }
   next();
 });
 
 router.afterEach((to, from) => {
   if (window.innerWidth <= 768) {
-    // Only auto-resolve if NOT heading to details route (they fetch data and self-resolve)
-    const isDetailRoute = to.name === 'booking' || to.name === 'shuttlebus-detail';
-    if (!isDetailRoute) {
-      setTimeout(() => {
-        bookingStore.isLoading = false;
-      }, 800);
+    // Detail routes self-resolve (mereka sendiri set isLoading = false setelah data dimuat)
+    if (!DETAIL_ROUTES.has(to.name)) {
+      bookingStore.isLoading = false;
     }
   } else {
     bookingStore.isLoading = false;
